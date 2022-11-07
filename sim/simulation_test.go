@@ -32,10 +32,10 @@ func Test_bearing2angle(t *testing.T) {
 }
 
 func TestTraffic_Setup(t *testing.T) {
-	alt_hist := hist.CreateHistogram(hist.GetDataFromCSV("../data/alts.csv"), 20)
-	track_hist := hist.CreateHistogram(hist.GetDataFromCSV("../data/tracks.csv"), 20)
-	vel_hist := hist.CreateHistogram(hist.GetDataFromCSV("../data/vels.csv"), 20)
-	vert_rate_hist := hist.CreateHistogram(hist.GetDataFromCSV("../data/vert_rates.csv"), 20)
+	alt_hist := hist.CreateHistogram(hist.GetDataFromCSV("../test_data/alts.csv"), 20)
+	track_hist := hist.CreateHistogram(hist.GetDataFromCSV("../test_data/tracks.csv"), 20)
+	vel_hist := hist.CreateHistogram(hist.GetDataFromCSV("../test_data/vels.csv"), 20)
+	vert_rate_hist := hist.CreateHistogram(hist.GetDataFromCSV("../test_data/vert_rates.csv"), 20)
 
 	type args struct {
 		bounds         [6]float64
@@ -56,10 +56,10 @@ func TestTraffic_Setup(t *testing.T) {
 }
 
 func TestTraffic_Step(t *testing.T) {
-	alt_hist := hist.CreateHistogram(hist.GetDataFromCSV("../data/alts.csv"), 40)
-	track_hist := hist.CreateHistogram(hist.GetDataFromCSV("../data/tracks.csv"), 40)
-	vel_hist := hist.CreateHistogram(hist.GetDataFromCSV("../data/vels.csv"), 40)
-	vert_rate_hist := hist.CreateHistogram(hist.GetDataFromCSV("../data/vert_rates.csv"), 40)
+	alt_hist := hist.CreateHistogram(hist.GetDataFromCSV("../test_data/alts.csv"), 40)
+	track_hist := hist.CreateHistogram(hist.GetDataFromCSV("../test_data/tracks.csv"), 40)
+	vel_hist := hist.CreateHistogram(hist.GetDataFromCSV("../test_data/vels.csv"), 40)
+	vert_rate_hist := hist.CreateHistogram(hist.GetDataFromCSV("../test_data/vert_rates.csv"), 40)
 	traffic := Traffic{Seed: 321, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist}
 	traffic.Setup([6]float64{0, 1e4, 0, 1e4, 0, 1524}, 4e-9)
 	tests := []struct {
@@ -94,10 +94,10 @@ func TestOwnship_Step(t *testing.T) {
 }
 
 func TestSimulation_Run(t *testing.T) {
-	alt_hist := hist.CreateHistogram(hist.GetDataFromCSV("../data/alts.csv"), 40)
-	track_hist := hist.CreateHistogram(hist.GetDataFromCSV("../data/tracks.csv"), 40)
-	vel_hist := hist.CreateHistogram(hist.GetDataFromCSV("../data/vels.csv"), 40)
-	vert_rate_hist := hist.CreateHistogram(hist.GetDataFromCSV("../data/vert_rates.csv"), 40)
+	alt_hist := hist.CreateHistogram(hist.GetDataFromCSV("../test_data/alts.csv"), 40)
+	track_hist := hist.CreateHistogram(hist.GetDataFromCSV("../test_data/tracks.csv"), 40)
+	vel_hist := hist.CreateHistogram(hist.GetDataFromCSV("../test_data/vels.csv"), 40)
+	vert_rate_hist := hist.CreateHistogram(hist.GetDataFromCSV("../test_data/vert_rates.csv"), 40)
 	traffic := Traffic{Seed: 321, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist}
 	traffic.Setup([6]float64{0, 1e4, 0, 1e4, 0, 1524}, 1e-7)
 
