@@ -2,8 +2,9 @@ package sim
 
 import (
 	"abs-specific/hist"
-	"gonum.org/v1/gonum/mat"
 	"testing"
+
+	"gonum.org/v1/gonum/mat"
 )
 
 func Test_bearing2angle(t *testing.T) {
