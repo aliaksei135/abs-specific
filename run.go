@@ -5,7 +5,6 @@ import (
 	"abs-specific/sim"
 	"database/sql"
 	"encoding/csv"
-	"flag"
 	"fmt"
 	"log"
 	"math"
@@ -18,7 +17,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/urfave/cli/v2"
-	"github.com/urfave/cli/v2/altsrc"
+	// "github.com/urfave/cli/v2/altsrc"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -61,26 +60,29 @@ func GetPathDataFromCSV(csvPath string) []mat.Dense {
 	return out
 }
 
-func parseBounds(boundStr string) [6]float64 {
-	tokens := strings.Split(boundStr, ",")
-	var out [6]float64
-	for i, t := range tokens {
-		out[i], _ = strconv.ParseFloat(t, 64)
-	}
-	return out
-}
+// func parseBounds(boundStr string) [6]float64 {
+// 	tokens := strings.Split(boundStr, ",")
+// 	var out [6]float64
+// 	for i, t := range tokens {
+// 		out[i], _ = strconv.ParseFloat(t, 64)
+// 	}
+// 	return out
+// }
 
-func parseConflictDists(conflictStr string) [2]float64 {
-	tokens := strings.Split(conflictStr, ",")
-	var out [2]float64
-	for i, t := range tokens {
-		out[i], _ = strconv.ParseFloat(t, 64)
-	}
-	return out
-}
+// func parseConflictDists(conflictStr string) [2]float64 {
+// 	tokens := strings.Split(conflictStr, ",")
+// 	var out [2]float64
+// 	for i, t := range tokens {
+// 		out[i], _ = strconv.ParseFloat(t, 64)
+// 	}
+// 	return out
+// }
 
 func main() {
 	app := &cli.App{
+		Version:     "0.1a",
+		Usage:       "Specific Traffic ABS",
+		Description: "Agent Based Traffic MAC Simulation",
 		Flags: []cli.Flag{
 			&cli.Float64SliceFlag{
 				Name:     "bounds",
@@ -88,7 +90,7 @@ func main() {
 				Required: true,
 			},
 			&cli.Float64Flag{
-				Name:     "targetDensity",
+				Name:     "target-density",
 				Usage:    "Target background traffic density in ac/m^3",
 				Required: true,
 			},
@@ -112,7 +114,7 @@ func main() {
 				Usage:    "Path to vertical rate data in m/s as CSV",
 				Required: true,
 			},
-			&cli.Float64SliceFlag{
+			&cli.PathFlag{
 				Name:     "ownPath",
 				Usage:    "Path for ownship. Should be a nx3 CSV",
 				Required: true,
@@ -125,9 +127,73 @@ func main() {
 			&cli.Float64SliceFlag{
 				Name:  "conflictDists",
 				Usage: "X,Y distances in metres which define a conflict",
+				Value: cli.NewFloat64Slice(20.0, 15.0),
+			},
+			&cli.PathFlag{
+				Name:  "dbPath",
+				Usage: "A path to the SQLite3 DB the results should be written to",
+				Value: "./results.db",
 			},
 		},
-		Action: func(cCtx *cli.Context) error {
+		// Before: altsrc., //TODO Accept file flag input
+		Action: func(ctx *cli.Context) error {
+			bounds := (*[6]float64)(ctx.Float64Slice("bounds"))
+			target_density := ctx.Float64("target-density")
+			alt_hist := hist.CreateHistogram(hist.GetDataFromCSV(ctx.Path("altDataPath")), 50)
+			track_hist := hist.CreateHistogram(hist.GetDataFromCSV(ctx.Path("trackDataPath")), 50)
+			vel_hist := hist.CreateHistogram(hist.GetDataFromCSV(ctx.Path("velDataPath")), 50)
+			vert_rate_hist := hist.CreateHistogram(hist.GetDataFromCSV(ctx.Path("vertRateDataPath")), 50)
+			own_path := GetPathDataFromCSV(ctx.Path("ownPath"))
+			conflict_dist := (*[2]float64)(ctx.Float64Slice("conflictDists"))
+			dbPath := ctx.Path("dbPath")
+			simOps := ctx.Int("simOps")
+
+			db, err := sql.Open("sqlite3", dbPath)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+			defer db.Close()
+
+			_, err = db.Exec("CREATE TABLE IF NOT EXISTS sims(id, seed, timesteps, n_conflicts)")
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			result_chan := make(chan []int64)
+
+			n_batches := runtime.NumCPU()
+			batch_size := int(simOps / n_batches)
+
+			for i := 0; i < n_batches; i++ {
+				go simulateBatch(batch_size, result_chan, *bounds, alt_hist, track_hist, vel_hist, vert_rate_hist, target_density, own_path, *conflict_dist)
+			}
+
+			sim_results := make([][]int64, n_batches*batch_size)
+
+			result_count := 0
+			for results := range result_chan {
+				sim_results[result_count] = results
+
+				result_count++
+				if result_count >= n_batches*batch_size {
+					break
+				}
+			}
+
+			value_fmt := "(%v, %v, %v, %v)"
+			string_results := make([]string, len(sim_results))
+			for idx, row := range sim_results {
+				string_results[idx] = fmt.Sprintf(value_fmt, row[0], row[1], row[2], row[3])
+			}
+			values_str := strings.Join(string_results, ",")
+			_, err = db.Exec("INSERT INTO sims VALUES " + values_str)
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
 			return nil
 		},
 	}
@@ -136,68 +202,68 @@ func main() {
 		log.Fatal(err)
 	}
 
-	boundsArg := flag.String("bounds", "", "S,W,N,E bounds in metres")
-	targetDensityArg := flag.Float64("target-density", 1e-9, "Target Background Traffic Density")
-	altsData := flag.String("alts-data", "", "Path to altitude data as CSV")
-	velsData := flag.String("vels-data", "", "Path to velocity data as CSV")
-	tracksData := flag.String("tracks-data", "", "Path to track data as CSV")
-	vertRatesData := flag.String("vert-rates-data", "", "Path to vertical rate data as CSV")
-	pathData := flag.String("path-data", "", "Path to ownship trajectory as CSV")
-	dbPath := flag.String("output-path", "", "Path to results database")
-	simOps := flag.Int("sim-ops", 1e3, "Number of operations to simulate")
-	conflictDists := flag.String("conflict-dists", "20,20", "X,Y distances in metres which define a conflict")
+	// boundsArg := flag.String("bounds", "", "S,W,N,E bounds in metres")
+	// targetDensityArg := flag.Float64("target-density", 1e-9, "Target Background Traffic Density")
+	// altsData := flag.String("alts-data", "", "Path to altitude data as CSV")
+	// velsData := flag.String("vels-data", "", "Path to velocity data as CSV")
+	// tracksData := flag.String("tracks-data", "", "Path to track data as CSV")
+	// vertRatesData := flag.String("vert-rates-data", "", "Path to vertical rate data as CSV")
+	// pathData := flag.String("path-data", "", "Path to ownship trajectory as CSV")
+	// dbPath := flag.String("output-path", "", "Path to results database")
+	// simOps := flag.Int("sim-ops", 1e3, "Number of operations to simulate")
+	// conflictDists := flag.String("conflict-dists", "20,20", "X,Y distances in metres which define a conflict")
 
-	flag.Parse()
+	// flag.Parse()
 
-	bounds := parseBounds(*boundsArg)
-	target_density := *targetDensityArg
-	alt_hist := hist.CreateHistogram(hist.GetDataFromCSV(*altsData), 50)
-	track_hist := hist.CreateHistogram(hist.GetDataFromCSV(*tracksData), 50)
-	vel_hist := hist.CreateHistogram(hist.GetDataFromCSV(*velsData), 50)
-	vert_rate_hist := hist.CreateHistogram(hist.GetDataFromCSV(*vertRatesData), 50)
-	own_path := GetPathDataFromCSV(*pathData)
-	conflict_dist := parseConflictDists(*conflictDists)
+	// bounds := parseBounds(*boundsArg)
+	// target_density := *targetDensityArg
+	// alt_hist := hist.CreateHistogram(hist.GetDataFromCSV(*altsData), 50)
+	// track_hist := hist.CreateHistogram(hist.GetDataFromCSV(*tracksData), 50)
+	// vel_hist := hist.CreateHistogram(hist.GetDataFromCSV(*velsData), 50)
+	// vert_rate_hist := hist.CreateHistogram(hist.GetDataFromCSV(*vertRatesData), 50)
+	// own_path := GetPathDataFromCSV(*pathData)
+	// conflict_dist := parseConflictDists(*conflictDists)
 
-	db, err := sql.Open("sqlite3", *dbPath)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
+	// db, err := sql.Open("sqlite3", *dbPath)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// defer db.Close()
 
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS sims(id, seed, timesteps, n_conflicts)")
-	if err != nil {
-		log.Fatal(err)
-	}
+	// _, err = db.Exec("CREATE TABLE IF NOT EXISTS sims(id, seed, timesteps, n_conflicts)")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	result_chan := make(chan []int64)
+	// result_chan := make(chan []int64)
 
-	n_batches := runtime.NumCPU()
-	batch_size := int(*simOps / n_batches)
+	// n_batches := runtime.NumCPU()
+	// batch_size := int(*simOps / n_batches)
 
-	for i := 0; i < n_batches; i++ {
-		go simulateBatch(batch_size, result_chan, bounds, alt_hist, track_hist, vel_hist, vert_rate_hist, target_density, own_path, conflict_dist)
-	}
+	// for i := 0; i < n_batches; i++ {
+	// 	go simulateBatch(batch_size, result_chan, bounds, alt_hist, track_hist, vel_hist, vert_rate_hist, target_density, own_path, conflict_dist)
+	// }
 
-	sim_results := make([][]int64, n_batches*batch_size)
+	// sim_results := make([][]int64, n_batches*batch_size)
 
-	result_count := 0
-	for results := range result_chan {
-		sim_results[result_count] = results
+	// result_count := 0
+	// for results := range result_chan {
+	// 	sim_results[result_count] = results
 
-		result_count++
-		if result_count >= n_batches*batch_size {
-			break
-		}
-	}
+	// 	result_count++
+	// 	if result_count >= n_batches*batch_size {
+	// 		break
+	// 	}
+	// }
 
-	value_fmt := "(%v, %v, %v, %v)"
-	string_results := make([]string, len(sim_results))
-	for idx, row := range sim_results {
-		string_results[idx] = fmt.Sprintf(value_fmt, row[0], row[1], row[2], row[3])
-	}
-	values_str := strings.Join(string_results, ",")
-	_, err = db.Exec("INSERT INTO sims VALUES " + values_str)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// value_fmt := "(%v, %v, %v, %v)"
+	// string_results := make([]string, len(sim_results))
+	// for idx, row := range sim_results {
+	// 	string_results[idx] = fmt.Sprintf(value_fmt, row[0], row[1], row[2], row[3])
+	// }
+	// values_str := strings.Join(string_results, ",")
+	// _, err = db.Exec("INSERT INTO sims VALUES " + values_str)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 }
