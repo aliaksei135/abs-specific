@@ -4,11 +4,10 @@ import (
 	"encoding/csv"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
-
-	"gonum.org/v1/gonum/mat"
 )
 
 func GetDataFromCSV(csvPath string) []float64 {
@@ -25,29 +24,30 @@ func GetDataFromCSV(csvPath string) []float64 {
 	return out
 }
 
-func GetPathDataFromCSV(csvPath string) []mat.Dense {
+func GetPathDataFromCSV(csvPath string) [][3]float64 {
 	file, err := os.Open(csvPath)
 	if err != nil {
 		fmt.Println(err)
 	}
 	reader := csv.NewReader(file)
 	vals, _ := reader.ReadAll()
-	out := make([]mat.Dense, len(vals))
+	out := make([][3]float64, len(vals))
 	for i, str := range vals {
 		x, _ := strconv.ParseFloat(strings.TrimPrefix(str[0], "\uFEFF"), 64)
 		y, _ := strconv.ParseFloat(strings.TrimPrefix(str[1], "\uFEFF"), 64)
 		z, _ := strconv.ParseFloat(strings.TrimPrefix(str[2], "\uFEFF"), 64)
-		out[i] = *mat.NewDense(1, 3, []float64{x, y, z})
+		out[i] = [3]float64{x, y, z}
 	}
 	return out
 }
 
-func GetPathLength(path []mat.Dense) float64 {
+func GetPathLength(path [][3]float64) float64 {
 	length := 0.0
 	for i := 0; i < len(path)-1; i++ {
-		var diff mat.Dense
-		diff.Sub(&path[i], &path[i+1])
-		length += diff.Norm(2)
+		currentPoint := path[i]
+		nextPoint := path[i+1]
+		dist := math.Sqrt((currentPoint[0]-nextPoint[0])*(currentPoint[0]-nextPoint[0]) + ((currentPoint[1] - nextPoint[1]) * (currentPoint[1] - nextPoint[1])) + ((currentPoint[2] - nextPoint[2]) * (currentPoint[2] - nextPoint[2])))
+		length += dist
 	}
 	return length
 }

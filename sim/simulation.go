@@ -105,29 +105,37 @@ func (tfc *Traffic) End() {
 }
 
 type Ownship struct {
-	Path       []mat.Dense
-	position   mat.Dense
-	Velocity   float64
-	path_index int
+	Path      [][3]float64
+	position  [3]float64
+	Velocity  float64
+	pathIndex int
 }
 
 func (ownship *Ownship) Setup() {
-	ownship.path_index = 1
+	ownship.pathIndex = 1
 	ownship.position = ownship.Path[0]
 }
 
 func (ownship *Ownship) Step() {
-	sub_goal := ownship.Path[ownship.path_index]
-	var vec_to_goal mat.Dense
-	var step_to_goal mat.Dense
-	vec_to_goal.Sub(&sub_goal, &ownship.position)
-	mag_to_goal := 1 / vec_to_goal.Norm(2)
-	step_to_goal.Scale(mag_to_goal, &vec_to_goal)
-	step_to_goal.Scale(ownship.Velocity, &step_to_goal)
-	if step_to_goal.Norm(2) > vec_to_goal.Norm(2) {
-		ownship.path_index += 1
+	sub_goal := ownship.Path[ownship.pathIndex]
+	var vecToGoal [3]float64
+	var stepToGoal [3]float64
+	for i := range ownship.position {
+		vecToGoal[i] = sub_goal[i] - ownship.position[i]
 	}
-	ownship.position.Add(&ownship.position, &step_to_goal)
+
+	goalMagnitude := math.Sqrt((vecToGoal[0] * vecToGoal[0]) + (vecToGoal[1] * vecToGoal[1]) + (vecToGoal[2] * vecToGoal[2]))
+
+	for i := range vecToGoal {
+		stepToGoal[i] = (vecToGoal[i] * ownship.Velocity) / goalMagnitude
+	}
+
+	if ownship.Velocity > goalMagnitude {
+		ownship.pathIndex += 1
+	}
+	for i := range stepToGoal {
+		ownship.position[i] += stepToGoal[i]
+	}
 }
 
 type Simulation struct {
@@ -141,7 +149,7 @@ type Simulation struct {
 func (sim *Simulation) Run() {
 
 	for {
-		if sim.Ownship.path_index >= len(sim.Ownship.Path) {
+		if sim.Ownship.pathIndex >= len(sim.Ownship.Path) {
 			sim.End()
 			break
 		}
@@ -149,8 +157,8 @@ func (sim *Simulation) Run() {
 		sim.Ownship.Step()
 
 		for i := 0; i < sim.Traffic.Positions.RawMatrix().Rows; i++ {
-			xy_dist := math.Sqrt((sim.Traffic.Positions.At(i, 0)-sim.Ownship.position.At(0, 0))*(sim.Traffic.Positions.At(i, 0)-sim.Ownship.position.At(0, 0)) + ((sim.Traffic.Positions.At(i, 1) - sim.Ownship.position.At(0, 1)) * (sim.Traffic.Positions.At(i, 1) - sim.Ownship.position.At(0, 1))))
-			z_dist := math.Abs(sim.Traffic.Positions.At(i, 2) - sim.Ownship.position.At(0, 2))
+			xy_dist := math.Sqrt((sim.Traffic.Positions.At(i, 0)-sim.Ownship.position[0])*(sim.Traffic.Positions.At(i, 0)-sim.Ownship.position[0]) + ((sim.Traffic.Positions.At(i, 1) - sim.Ownship.position[1]) * (sim.Traffic.Positions.At(i, 1) - sim.Ownship.position[1])))
+			z_dist := math.Abs(sim.Traffic.Positions.At(i, 2) - sim.Ownship.position[2])
 			if xy_dist < sim.ConflictDistances[0] && z_dist < sim.ConflictDistances[1] {
 				sim.ConflictLog++
 			}

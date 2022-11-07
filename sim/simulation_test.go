@@ -4,8 +4,6 @@ import (
 	"abs-specific/hist"
 	"abs-specific/util"
 	"testing"
-
-	"gonum.org/v1/gonum/mat"
 )
 
 func Test_bearing2angle(t *testing.T) {
@@ -77,7 +75,7 @@ func TestTraffic_Step(t *testing.T) {
 }
 
 func TestOwnship_Step(t *testing.T) {
-	path := []mat.Dense{*mat.NewDense(1, 3, []float64{1, 1, 200}), *mat.NewDense(1, 3, []float64{300, 600, 800}), *mat.NewDense(1, 3, []float64{2000, 5000, 900}), *mat.NewDense(1, 3, []float64{3000, 6000, 200})}
+	path := [][3]float64{{1, 1, 200}, {300, 600, 800}, {2000, 5000, 900}, {3000, 6000, 200}}
 	ownship := Ownship{Path: path, Velocity: 10.0}
 	ownship.Setup()
 

@@ -19,20 +19,16 @@ import (
 
 	"github.com/urfave/cli/v2"
 	// "github.com/urfave/cli/v2/altsrc"
-	"gonum.org/v1/gonum/mat"
 )
 
-func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt_hist, track_hist, vel_hist, vert_rate_hist hist.Histogram, target_density float64, path []mat.Dense, conflict_dists [2]float64) {
+func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt_hist, track_hist, vel_hist, vert_rate_hist hist.Histogram, target_density float64, path [][3]float64, conflict_dists [2]float64) {
 
 	for i := 0; i < batch_size; i++ {
 		seed := rand.Int63()
-		fmt.Printf("Simulating with seed %v \n", seed)
 		traffic := sim.Traffic{Seed: seed, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist}
 		traffic.Setup(bounds, target_density)
 
 		ownVelocity := 70.0
-		pathLength := util.GetPathLength(path)
-		fmt.Printf("Path Length %v, expected sim steps %v\n", pathLength, pathLength/ownVelocity)
 		ownship := sim.Ownship{Path: path, Velocity: ownVelocity}
 		ownship.Setup()
 
@@ -44,7 +40,6 @@ func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt
 		for i := 0; i < samples; i++ {
 			pos_sum += sim.Traffic.Positions.RawMatrix().Data[i]
 		}
-		fmt.Println("Sim Done!")
 		chan_out <- []int64{int64(pos_sum), seed, int64(sim.T), int64(sim.ConflictLog)}
 	}
 }
