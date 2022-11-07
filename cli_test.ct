@@ -1,0 +1,3 @@
+#$ abs-specific gibberish
+
+#$ abs-specific --bounds -145176.17270300398,-101964.24515822314,6569893.199178016,6595219.236650961,0,1524 --target-density 1e-9 --altDataPath test_data/alts.csv --velDataPath test_data/vels.csv --trackDataPath test_data/tracks.csv --vertRateDataPath test_data/vert_rates.csv --ownPath test_data/path.csv --dbPath test_data/abs-specific.db

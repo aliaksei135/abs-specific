@@ -3,15 +3,16 @@ package main
 import (
 	"abs-specific/hist"
 	"abs-specific/sim"
+	"abs-specific/util"
 	"database/sql"
-	"encoding/csv"
 	"fmt"
 	"log"
 	"math"
 	"math/rand"
 	"os"
+
 	"runtime"
-	"strconv"
+
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -25,10 +26,14 @@ func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt
 
 	for i := 0; i < batch_size; i++ {
 		seed := rand.Int63()
+		fmt.Printf("Simulating with seed %v \n", seed)
 		traffic := sim.Traffic{Seed: seed, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist}
 		traffic.Setup(bounds, target_density)
 
-		ownship := sim.Ownship{Path: path, Velocity: 10.0}
+		ownVelocity := 70.0
+		pathLength := util.GetPathLength(path)
+		fmt.Printf("Path Length %v, expected sim steps %v\n", pathLength, pathLength/ownVelocity)
+		ownship := sim.Ownship{Path: path, Velocity: ownVelocity}
 		ownship.Setup()
 
 		sim := sim.Simulation{Traffic: traffic, Ownship: ownship, ConflictDistances: conflict_dists}
@@ -39,25 +44,9 @@ func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt
 		for i := 0; i < samples; i++ {
 			pos_sum += sim.Traffic.Positions.RawMatrix().Data[i]
 		}
+		fmt.Println("Sim Done!")
 		chan_out <- []int64{int64(pos_sum), seed, int64(sim.T), int64(sim.ConflictLog)}
 	}
-}
-
-func GetPathDataFromCSV(csvPath string) []mat.Dense {
-	file, err := os.Open(csvPath)
-	if err != nil {
-		fmt.Println(err)
-	}
-	reader := csv.NewReader(file)
-	vals, _ := reader.ReadAll()
-	out := make([]mat.Dense, len(vals))
-	for i, str := range vals {
-		x, _ := strconv.ParseFloat(str[0], 64)
-		y, _ := strconv.ParseFloat(str[1], 64)
-		z, _ := strconv.ParseFloat(str[2], 64)
-		out[i] = *mat.NewDense(1, 3, []float64{x, y, z})
-	}
-	return out
 }
 
 // func parseBounds(boundStr string) [6]float64 {
@@ -86,7 +75,7 @@ func main() {
 		Flags: []cli.Flag{
 			&cli.Float64SliceFlag{
 				Name:     "bounds",
-				Usage:    "S,W,N,E bounds in metres",
+				Usage:    "W,E,S,N,B,T bounds in metres",
 				Required: true,
 			},
 			&cli.Float64Flag{
@@ -121,8 +110,8 @@ func main() {
 			},
 			&cli.IntFlag{
 				Name:  "simOps",
-				Usage: "The total number of simluation runs to be done.",
-				Value: 1e9,
+				Usage: "The total number of simulation runs to be done.",
+				Value: 1e2,
 			},
 			&cli.Float64SliceFlag{
 				Name:  "conflictDists",
@@ -137,34 +126,34 @@ func main() {
 		},
 		// Before: altsrc., //TODO Accept file flag input
 		Action: func(ctx *cli.Context) error {
-			bounds := (*[6]float64)(ctx.Float64Slice("bounds"))
+			bounds := (*[6]float64)(util.CheckSliceLen(ctx.Float64Slice("bounds"), 6))
 			target_density := ctx.Float64("target-density")
-			alt_hist := hist.CreateHistogram(hist.GetDataFromCSV(ctx.Path("altDataPath")), 50)
-			track_hist := hist.CreateHistogram(hist.GetDataFromCSV(ctx.Path("trackDataPath")), 50)
-			vel_hist := hist.CreateHistogram(hist.GetDataFromCSV(ctx.Path("velDataPath")), 50)
-			vert_rate_hist := hist.CreateHistogram(hist.GetDataFromCSV(ctx.Path("vertRateDataPath")), 50)
-			own_path := GetPathDataFromCSV(ctx.Path("ownPath"))
-			conflict_dist := (*[2]float64)(ctx.Float64Slice("conflictDists"))
+			alt_hist := hist.CreateHistogram(util.GetDataFromCSV(util.CheckPathExists(ctx.Path("altDataPath"))), 50)
+			track_hist := hist.CreateHistogram(util.GetDataFromCSV(util.CheckPathExists(ctx.Path("trackDataPath"))), 50)
+			vel_hist := hist.CreateHistogram(util.GetDataFromCSV(util.CheckPathExists(ctx.Path("velDataPath"))), 50)
+			vert_rate_hist := hist.CreateHistogram(util.GetDataFromCSV(util.CheckPathExists(ctx.Path("vertRateDataPath"))), 50)
+			own_path := util.GetPathDataFromCSV(util.CheckPathExists(ctx.Path("ownPath")))
+			conflict_dist := (*[2]float64)(util.CheckSliceLen(ctx.Float64Slice("conflictDists"), 2))
 			dbPath := ctx.Path("dbPath")
 			simOps := ctx.Int("simOps")
 
 			db, err := sql.Open("sqlite3", dbPath)
 			if err != nil {
 				log.Fatal(err)
-				return err
 			}
 			defer db.Close()
 
 			_, err = db.Exec("CREATE TABLE IF NOT EXISTS sims(id, seed, timesteps, n_conflicts)")
 			if err != nil {
 				log.Fatal(err)
-				return err
 			}
+			fmt.Println("Created/Opened output database")
 
 			result_chan := make(chan []int64)
 
 			n_batches := runtime.NumCPU()
 			batch_size := int(simOps / n_batches)
+			fmt.Printf("Running %v batches of %v simulations\n", n_batches, batch_size)
 
 			for i := 0; i < n_batches; i++ {
 				go simulateBatch(batch_size, result_chan, *bounds, alt_hist, track_hist, vel_hist, vert_rate_hist, target_density, own_path, *conflict_dist)
@@ -181,18 +170,21 @@ func main() {
 					break
 				}
 			}
-
+			fmt.Printf("Formatting %v results for database insertion\n", len(sim_results))
 			value_fmt := "(%v, %v, %v, %v)"
 			string_results := make([]string, len(sim_results))
 			for idx, row := range sim_results {
 				string_results[idx] = fmt.Sprintf(value_fmt, row[0], row[1], row[2], row[3])
 			}
 			values_str := strings.Join(string_results, ",")
+			fmt.Println("Inserting results into database")
 			_, err = db.Exec("INSERT INTO sims VALUES " + values_str)
 			if err != nil {
 				log.Fatal(err)
 				return err
 			}
+
+			fmt.Print("Completed successfully. Exiting...\n")
 
 			return nil
 		},

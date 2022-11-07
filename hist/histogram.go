@@ -1,27 +1,9 @@
 package hist
 
 import (
-	"encoding/csv"
-	"fmt"
 	"math/rand"
-	"os"
 	"sort"
-	"strconv"
 )
-
-func GetDataFromCSV(csvPath string) []float64 {
-	file, err := os.Open(csvPath)
-	if err != nil {
-		fmt.Println(err)
-	}
-	reader := csv.NewReader(file)
-	vals, _ := reader.ReadAll()
-	out := make([]float64, len(vals))
-	for i, str := range vals {
-		out[i], _ = strconv.ParseFloat(str[0], 64)
-	}
-	return out
-}
 
 type Histogram struct {
 	bin_midpoints []float64
