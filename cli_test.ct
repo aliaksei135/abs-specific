@@ -1,3 +1,34 @@
-#$ abs-specific gibberish
+$ abs-specific gibberish --> FAIL
+NAME:
+   abs-specific - Specific Traffic ABS
 
-#$ abs-specific --bounds -145176.17270300398,-101964.24515822314,6569893.199178016,6595219.236650961,0,1524 --target-density 1e-9 --altDataPath test_data/alts.csv --velDataPath test_data/vels.csv --trackDataPath test_data/tracks.csv --vertRateDataPath test_data/vert_rates.csv --ownPath test_data/path.csv --dbPath test_data/abs-specific.db
+USAGE:
+   abs-specific command [command options] [arguments...]
+
+DESCRIPTION:
+   Agent Based Traffic MAC Simulation
+
+COMMANDS:
+   help, h  Shows a list of commands or help for one command
+
+OPTIONS:
+   --bounds value [ --bounds value ]                W,E,S,N,B,T bounds in metres
+   --target-density value                           Target background traffic density in ac/m^3 (default: 0)
+   --altDataPath value                              Path to altitude data in metres as CSV
+   --velDataPath value                              Path to velocity data in m/s as CSV
+   --trackDataPath value                            Path to track data in deg as CSV
+   --vertRateDataPath value                         Path to vertical rate data in m/s as CSV
+   --ownPath value                                  Path for ownship. Should be a nx3 CSV
+   --simOps value                                   The total number of simulation runs to be done. (default: 100)
+   --conflictDists value [ --conflictDists value ]  X,Y distances in metres which define a conflict (default: 20, 15)
+   --dbPath value                                   A path to the SQLite3 DB the results should be written to (default: "./results.db")
+   --help, -h                                       show help (default: false)
+   --version, -v                                    print the version (default: false)
+Required flags "bounds, target-density, altDataPath, velDataPath, trackDataPath, vertRateDataPath, ownPath" not set
+
+$ abs-specific --bounds -145176.17270300398,-101964.24515822314,6569893.199178016,6595219.236650961,0,1524 --target-density 1e-9 --simOps 1000 --altDataPath ${PWD}/test_data/alts.csv --velDataPath ${PWD}/test_data/vels.csv --trackDataPath ${PWD}/test_data/tracks.csv --vertRateDataPath ${PWD}/test_data/vert_rates.csv --ownPath ${PWD}/test_data/path.csv --dbPath ${PWD}/test_data/abs-specific.db
+Created/Opened output database
+Running 16 batches of 62 simulations
+Formatting 992 results for database insertion
+Inserting results into database
+Completed successfully. Exiting...

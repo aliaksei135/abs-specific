@@ -20,5 +20,5 @@ func TestCLI(t *testing.T) {
 	defer os.Remove("abs-specific")
 
 	ts.Commands["abs-specific"] = cmdtest.Program("abs-specific")
-	ts.Run(t, false)
+	ts.Run(t, true)
 }

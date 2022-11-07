@@ -63,6 +63,8 @@ func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt
 // }
 
 func main() {
+	log.SetFlags(0)
+
 	app := &cli.App{
 		Version:     "0.1a",
 		Usage:       "Specific Traffic ABS",
