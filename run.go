@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"time"
 
 	"runtime"
 
@@ -36,7 +37,7 @@ func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt
 		sim.Run()
 		sim.End()
 		pos_sum := 0.0
-		samples := int(math.Max(600, float64(len(sim.Traffic.Positions.RawMatrix().Data))))
+		samples := int(math.Min(600, float64(len(sim.Traffic.Positions.RawMatrix().Data)-1)))
 		for i := 0; i < samples; i++ {
 			pos_sum += sim.Traffic.Positions.RawMatrix().Data[i]
 		}
@@ -64,6 +65,7 @@ func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt
 
 func main() {
 	log.SetFlags(0)
+	start := time.Now()
 
 	app := &cli.App{
 		Version:     "0.1a",
@@ -152,6 +154,11 @@ func main() {
 			batch_size := int(simOps / n_batches)
 			fmt.Printf("Running %v batches of %v simulations\n", n_batches, batch_size)
 
+			pathLength := util.GetPathLength(own_path)
+			expectedSteps := pathLength / 70
+			simulatedHours := (expectedSteps * float64(n_batches) * float64(batch_size)) / 3600
+			fmt.Printf("Simulating %v hrs, with %v hrs per simulation\n", simulatedHours, expectedSteps/3600)
+
 			for i := 0; i < n_batches; i++ {
 				go simulateBatch(batch_size, result_chan, *bounds, alt_hist, track_hist, vel_hist, vert_rate_hist, target_density, own_path, *conflict_dist)
 			}
@@ -181,8 +188,9 @@ func main() {
 				return err
 			}
 
-			fmt.Print("Completed successfully. Exiting...\n")
-
+			elapsed := time.Since(start).Seconds()
+			fmt.Printf("Completed successfully in %v seconds.\n %v ms per simulation.\n %v secs per simulated hour.\n", elapsed, elapsed/float64(1000*n_batches*batch_size), elapsed/simulatedHours)
+			fmt.Print("Exiting...\n")
 			return nil
 		},
 	}
@@ -190,69 +198,4 @@ func main() {
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
-
-	// boundsArg := flag.String("bounds", "", "S,W,N,E bounds in metres")
-	// targetDensityArg := flag.Float64("target-density", 1e-9, "Target Background Traffic Density")
-	// altsData := flag.String("alts-data", "", "Path to altitude data as CSV")
-	// velsData := flag.String("vels-data", "", "Path to velocity data as CSV")
-	// tracksData := flag.String("tracks-data", "", "Path to track data as CSV")
-	// vertRatesData := flag.String("vert-rates-data", "", "Path to vertical rate data as CSV")
-	// pathData := flag.String("path-data", "", "Path to ownship trajectory as CSV")
-	// dbPath := flag.String("output-path", "", "Path to results database")
-	// simOps := flag.Int("sim-ops", 1e3, "Number of operations to simulate")
-	// conflictDists := flag.String("conflict-dists", "20,20", "X,Y distances in metres which define a conflict")
-
-	// flag.Parse()
-
-	// bounds := parseBounds(*boundsArg)
-	// target_density := *targetDensityArg
-	// alt_hist := hist.CreateHistogram(hist.GetDataFromCSV(*altsData), 50)
-	// track_hist := hist.CreateHistogram(hist.GetDataFromCSV(*tracksData), 50)
-	// vel_hist := hist.CreateHistogram(hist.GetDataFromCSV(*velsData), 50)
-	// vert_rate_hist := hist.CreateHistogram(hist.GetDataFromCSV(*vertRatesData), 50)
-	// own_path := GetPathDataFromCSV(*pathData)
-	// conflict_dist := parseConflictDists(*conflictDists)
-
-	// db, err := sql.Open("sqlite3", *dbPath)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// defer db.Close()
-
-	// _, err = db.Exec("CREATE TABLE IF NOT EXISTS sims(id, seed, timesteps, n_conflicts)")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// result_chan := make(chan []int64)
-
-	// n_batches := runtime.NumCPU()
-	// batch_size := int(*simOps / n_batches)
-
-	// for i := 0; i < n_batches; i++ {
-	// 	go simulateBatch(batch_size, result_chan, bounds, alt_hist, track_hist, vel_hist, vert_rate_hist, target_density, own_path, conflict_dist)
-	// }
-
-	// sim_results := make([][]int64, n_batches*batch_size)
-
-	// result_count := 0
-	// for results := range result_chan {
-	// 	sim_results[result_count] = results
-
-	// 	result_count++
-	// 	if result_count >= n_batches*batch_size {
-	// 		break
-	// 	}
-	// }
-
-	// value_fmt := "(%v, %v, %v, %v)"
-	// string_results := make([]string, len(sim_results))
-	// for idx, row := range sim_results {
-	// 	string_results[idx] = fmt.Sprintf(value_fmt, row[0], row[1], row[2], row[3])
-	// }
-	// values_str := strings.Join(string_results, ",")
-	// _, err = db.Exec("INSERT INTO sims VALUES " + values_str)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
 }
