@@ -61,15 +61,19 @@ func TestTraffic_Step(t *testing.T) {
 	vert_rate_hist := hist.CreateHistogram(util.GetDataFromCSV("../test_data/vert_rates.csv"), 40)
 	traffic := Traffic{Seed: 321, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist}
 	traffic.Setup([6]float64{0, 1e4, 0, 1e4, 0, 1524}, 4e-9)
+	type args struct {
+		timestep float64
+	}
 	tests := []struct {
 		name string
 		tfc  *Traffic
+		args args
 	}{
-		{"Step", &traffic},
+		{"Step", &traffic, args{timestep: 1.0}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.tfc.Step()
+			tt.tfc.Step(tt.args.timestep)
 		})
 	}
 }
@@ -79,15 +83,19 @@ func TestOwnship_Step(t *testing.T) {
 	ownship := Ownship{Path: path, Velocity: 10.0}
 	ownship.Setup()
 
+	type args struct {
+		timestep float64
+	}
 	tests := []struct {
 		name    string
 		ownship *Ownship
+		args    args
 	}{
-		{"Step", &ownship},
+		{"Step", &ownship, args{timestep: 1.0}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.ownship.Step()
+			tt.ownship.Step(tt.args.timestep)
 		})
 	}
 }
@@ -103,7 +111,7 @@ func TestSimulation_Run(t *testing.T) {
 	ownship := Ownship{Path: util.GetPathDataFromCSV("../test_data/path.csv"), Velocity: 70.0}
 	ownship.Setup()
 
-	sim := Simulation{Traffic: traffic, Ownship: ownship, ConflictDistances: [2]float64{20, 20}}
+	sim := Simulation{Traffic: traffic, Ownship: ownship, ConflictDistances: [2]float64{20, 20}, TimeStep: 1.0}
 
 	tests := []struct {
 		name string
