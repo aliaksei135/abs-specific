@@ -56,6 +56,24 @@ func (tfc *Traffic) Setup(bounds [6]float64, target_density float64) {
 	tfc.AddAgents()
 }
 
+func (tfc *Traffic) GenerateXYEdgePosition() [2]float64 {
+	x_pos := ((tfc.x_bounds[1] - tfc.x_bounds[0]) * rand.Float64()) + tfc.x_bounds[0]
+	y_pos := ((tfc.y_bounds[1] - tfc.y_bounds[0]) * rand.Float64()) + tfc.y_bounds[0]
+
+	switch r := rand.Float64(); {
+	case r < 0.25:
+		x_pos = tfc.x_bounds[0]
+	case r < 0.5:
+		x_pos = tfc.x_bounds[1]
+	case r < 0.75:
+		y_pos = tfc.y_bounds[0]
+	default:
+		y_pos = tfc.y_bounds[1]
+	}
+
+	return [2]float64{x_pos, y_pos}
+}
+
 func (tfc *Traffic) AddAgents() {
 	n_new_agents := len(tfc.oob_rows)
 	speeds := tfc.VelocityDistr.Sample(n_new_agents)
@@ -63,11 +81,10 @@ func (tfc *Traffic) AddAgents() {
 	vert_rates := tfc.VerticalRateDistr.Sample(n_new_agents)
 	alts := tfc.AltitudeDistr.Sample(n_new_agents)
 	for idx, insert_row_idx := range tfc.oob_rows {
-		x_pos := ((tfc.x_bounds[1] - tfc.x_bounds[0]) * rand.Float64()) + tfc.x_bounds[0]
-		y_pos := ((tfc.y_bounds[1] - tfc.y_bounds[0]) * rand.Float64()) + tfc.y_bounds[0]
+		xy_pos := tfc.GenerateXYEdgePosition()
 		z_pos := alts[idx]
-		tfc.Positions.Set(insert_row_idx, 0, x_pos)
-		tfc.Positions.Set(insert_row_idx, 1, y_pos)
+		tfc.Positions.Set(insert_row_idx, 0, xy_pos[0])
+		tfc.Positions.Set(insert_row_idx, 1, xy_pos[1])
 		tfc.Positions.Set(insert_row_idx, 2, z_pos)
 
 		x_vel := math.Cos(bearing2angle(tracks[idx])) * speeds[idx]
