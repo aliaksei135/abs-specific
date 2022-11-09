@@ -29,6 +29,10 @@ Required flags "bounds, target-density, altDataPath, velDataPath, trackDataPath,
 $ abs-specific --bounds -145176.17270300398,-101964.24515822314,6569893.199178016,6595219.236650961,0,1524 --target-density 1e-9 --simOps 1000 --altDataPath ${PWD}/test_data/alts.csv --velDataPath ${PWD}/test_data/vels.csv --trackDataPath ${PWD}/test_data/tracks.csv --vertRateDataPath ${PWD}/test_data/vert_rates.csv --ownPath ${PWD}/test_data/path.csv --dbPath ${PWD}/test_data/abs-specific.db
 Created/Opened output database
 Running 16 batches of 62 simulations
+Simulating 270.90501493703476 hrs, with 0.2730897327994302 hrs per simulation
 Formatting 992 results for database insertion
 Inserting results into database
-Completed successfully. Exiting...
+Completed successfully in 2.694897886 seconds.
+ 2.716630933467742e-06 ms per simulation.
+ 0.009947759315664065 secs per simulated hour.
+Exiting...
