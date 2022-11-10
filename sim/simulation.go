@@ -24,6 +24,7 @@ type Traffic struct {
 	VelocityDistr     hist.Histogram
 	TrackDistr        hist.Histogram
 	VerticalRateDistr hist.Histogram
+	SurfaceEntrance   bool
 
 	//State
 	velocities mat.Dense
@@ -60,15 +61,17 @@ func (tfc *Traffic) GenerateXYEdgePosition() [2]float64 {
 	x_pos := ((tfc.x_bounds[1] - tfc.x_bounds[0]) * rand.Float64()) + tfc.x_bounds[0]
 	y_pos := ((tfc.y_bounds[1] - tfc.y_bounds[0]) * rand.Float64()) + tfc.y_bounds[0]
 
-	switch r := rand.Float64(); {
-	case r < 0.25:
-		x_pos = tfc.x_bounds[0]
-	case r < 0.5:
-		x_pos = tfc.x_bounds[1]
-	case r < 0.75:
-		y_pos = tfc.y_bounds[0]
-	default:
-		y_pos = tfc.y_bounds[1]
+	if tfc.SurfaceEntrance {
+		switch r := rand.Float64(); {
+		case r < 0.25:
+			x_pos = tfc.x_bounds[0]
+		case r < 0.5:
+			x_pos = tfc.x_bounds[1]
+		case r < 0.75:
+			y_pos = tfc.y_bounds[0]
+		default:
+			y_pos = tfc.y_bounds[1]
+		}
 	}
 
 	return [2]float64{x_pos, y_pos}

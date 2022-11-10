@@ -22,11 +22,11 @@ import (
 	// "github.com/urfave/cli/v2/altsrc"
 )
 
-func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt_hist, track_hist, vel_hist, vert_rate_hist hist.Histogram, target_density float64, path [][3]float64, conflict_dists [2]float64) {
+func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt_hist, track_hist, vel_hist, vert_rate_hist hist.Histogram, target_density float64, path [][3]float64, conflict_dists [2]float64, surfaceEntrance bool) {
 
 	for i := 0; i < batch_size; i++ {
 		seed := rand.Int63()
-		traffic := sim.Traffic{Seed: seed, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist}
+		traffic := sim.Traffic{Seed: seed, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist, SurfaceEntrance: surfaceEntrance}
 		traffic.Setup(bounds, target_density)
 
 		ownVelocity := 70.0
@@ -122,6 +122,11 @@ func main() {
 				Usage: "A path to the SQLite3 DB the results should be written to",
 				Value: "./results.db",
 			},
+			&cli.BoolFlag{
+				Name:  "surfaceEntrance",
+				Usage: "Boolean flag indicating whether traffic should only spawn at simulation volume surfaces",
+				Value: false,
+			},
 		},
 		// Before: altsrc., //TODO Accept file flag input
 		Action: func(ctx *cli.Context) error {
@@ -135,6 +140,7 @@ func main() {
 			conflict_dist := (*[2]float64)(util.CheckSliceLen(ctx.Float64Slice("conflictDists"), 2))
 			dbPath := ctx.Path("dbPath")
 			simOps := ctx.Int("simOps")
+			surfaceEntrance := ctx.Bool("surfaceEntrance")
 
 			db, err := sql.Open("sqlite3", dbPath)
 			if err != nil {
@@ -160,7 +166,7 @@ func main() {
 			fmt.Printf("Simulating %v hrs, with %v hrs per simulation\n", simulatedHours, expectedSteps/3600)
 
 			for i := 0; i < n_batches; i++ {
-				go simulateBatch(batch_size, result_chan, *bounds, alt_hist, track_hist, vel_hist, vert_rate_hist, target_density, own_path, *conflict_dist)
+				go simulateBatch(batch_size, result_chan, *bounds, alt_hist, track_hist, vel_hist, vert_rate_hist, target_density, own_path, *conflict_dist, surfaceEntrance)
 			}
 
 			sim_results := make([][]int64, n_batches*batch_size)
