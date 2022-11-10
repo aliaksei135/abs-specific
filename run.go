@@ -41,7 +41,7 @@ func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt
 		for i := 0; i < samples; i++ {
 			pos_sum += sim.Traffic.Positions.RawMatrix().Data[i]
 		}
-		chan_out <- []int64{int64(pos_sum), seed, int64(sim.T), int64(sim.ConflictLog)}
+		chan_out <- []int64{int64(pos_sum), seed, int64(float64(sim.T) * sim.TimeStep), int64(sim.ConflictLog)}
 	}
 }
 
