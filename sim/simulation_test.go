@@ -1,9 +1,10 @@
 package sim
 
 import (
-	"abs-specific/hist"
-	"abs-specific/util"
 	"testing"
+
+	"github.com/aliaksei135/abs-specific/hist"
+	"github.com/aliaksei135/abs-specific/util"
 )
 
 func Test_bearing2angle(t *testing.T) {

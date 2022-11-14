@@ -1,9 +1,6 @@
 package main
 
 import (
-	"abs-specific/hist"
-	"abs-specific/sim"
-	"abs-specific/util"
 	"database/sql"
 	"fmt"
 	"log"
@@ -11,6 +8,10 @@ import (
 	"math/rand"
 	"os"
 	"time"
+
+	"github.com/aliaksei135/abs-specific/hist"
+	"github.com/aliaksei135/abs-specific/sim"
+	"github.com/aliaksei135/abs-specific/util"
 
 	"runtime"
 

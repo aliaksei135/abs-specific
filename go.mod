@@ -1,4 +1,4 @@
-module abs-specific
+module github.com/aliaksei135/abs-specific
 
 go 1.19
 

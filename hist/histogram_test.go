@@ -1,8 +1,9 @@
 package hist
 
 import (
-	"abs-specific/util"
 	"math/rand"
+
+	"github.com/aliaksei135/abs-specific/util"
 
 	"reflect"
 	"testing"

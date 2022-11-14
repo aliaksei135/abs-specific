@@ -1,9 +1,10 @@
 package sim
 
 import (
-	"abs-specific/hist"
 	"math"
 	"math/rand"
+
+	"github.com/aliaksei135/abs-specific/hist"
 
 	"gonum.org/v1/gonum/mat"
 )
