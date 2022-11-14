@@ -28,7 +28,7 @@ func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt
 		traffic := sim.Traffic{Seed: seed, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist, SurfaceEntrance: surfaceEntrance}
 		traffic.Setup(bounds, target_density)
 
-		ownVelocity := 70.0
+		ownVelocity := 60.0
 		ownship := sim.Ownship{Path: path, Velocity: ownVelocity}
 		ownship.Setup()
 
@@ -114,7 +114,7 @@ func main() {
 			&cli.Float64SliceFlag{
 				Name:  "conflictDists",
 				Usage: "X,Y distances in metres which define a conflict",
-				Value: cli.NewFloat64Slice(20.0, 15.0),
+				Value: cli.NewFloat64Slice(15.0, 6.0),
 			},
 			&cli.PathFlag{
 				Name:  "dbPath",
