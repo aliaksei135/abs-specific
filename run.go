@@ -200,6 +200,13 @@ func main() {
 				return err
 			}
 
+			_, S3Upload := os.LookupEnv("S3_UPLOAD_RESULTS")
+			if S3Upload {
+				fmt.Println("Uploading results to S3...")
+				util.UploadToS3(dbPath)
+				fmt.Println("Uploaded results to S3")
+			}
+
 			elapsed := time.Since(start).Seconds()
 			fmt.Printf("Completed successfully in %v seconds.\n %v ms per simulation.\n %v secs per simulated hour.\n", elapsed, elapsed/float64(1000*n_batches*batch_size), elapsed/simulatedHours)
 			fmt.Print("Exiting...\n")

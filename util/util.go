@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -21,6 +22,7 @@ var (
 	S3SetupComplete bool
 	S3Downloader    s3manager.Downloader
 	S3Uploader      s3manager.Uploader
+	SimulationUID   string
 )
 
 func setupS3() {
@@ -46,6 +48,10 @@ func setupS3() {
 	S3Downloader = *s3manager.NewDownloader(sess)
 	S3Uploader = *s3manager.NewUploader(sess)
 	S3SetupComplete = true
+
+	sUID := uid.NewSet().NewID()
+	uid.NewSet().Use(sUID)
+	SimulationUID = fmt.Sprint(sUID)
 }
 
 func GetDataFromCSV(csvPath string) []float64 {
@@ -99,11 +105,12 @@ func CheckPathExists(path string) string {
 		keyName := tokens[len(tokens)-1]
 		bucketName := tokens[len(tokens)-2]
 
-		filePath := os.TempDir() + fmt.Sprint(os.PathSeparator) + fmt.Sprint(uid.NewSet().NewID()) + keyName
+		filePath := os.TempDir() + fmt.Sprint(os.PathSeparator) + SimulationUID + keyName
 		file, err := os.Open(filePath)
 		if err != nil {
 			panic("Could not create temp file to download S3 file " + path)
 		}
+		defer file.Close()
 
 		_, err = S3Downloader.Download(file,
 			&s3.GetObjectInput{
@@ -119,11 +126,40 @@ func CheckPathExists(path string) string {
 
 	} else {
 
-		_, err := os.Open(path)
+		file, err := os.Open(path)
 		if err != nil {
 			log.Fatal(err)
 		}
+		defer file.Close()
+
 		return path
+	}
+}
+
+func UploadToS3(path string) {
+	if !S3SetupComplete {
+		setupS3()
+	}
+	uploadBucket, exists := os.LookupEnv("S3_UPLOAD_BUCKET")
+	if !exists {
+		panic("S3 Upload bucket not set")
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		panic("Could not open results file")
+	}
+	fileName := SimulationUID + "-" + filepath.Base(path)
+
+	_, err = S3Uploader.Upload(
+		&s3manager.UploadInput{
+			Bucket: &uploadBucket,
+			Key:    &fileName,
+			Body:   file,
+		},
+	)
+	if err != nil {
+		panic("Could not upload results to S3")
 	}
 }
 
