@@ -8,7 +8,45 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"gonum.org/v1/gonum/graph/set/uid"
 )
+
+var (
+	S3SetupComplete bool
+	S3Downloader    s3manager.Downloader
+	S3Uploader      s3manager.Uploader
+)
+
+func setupS3() {
+	S3_KEY := os.Getenv("S3_KEY")
+	S3_SECRET := os.Getenv("S3_SECRET")
+	S3_REGION := os.Getenv("S3_REGION")
+	if S3_KEY == "" {
+		panic("S3 key empty")
+	}
+	if S3_SECRET == "" {
+		panic("S3 secret empty")
+	}
+	if S3_REGION == "" {
+		panic("S3 region empty")
+	}
+
+	sess, _ := session.NewSession(&aws.Config{
+		Region:      aws.String(S3_REGION),
+		Credentials: credentials.NewStaticCredentials(S3_KEY, S3_SECRET, ""),
+	},
+	)
+
+	S3Downloader = *s3manager.NewDownloader(sess)
+	S3Uploader = *s3manager.NewUploader(sess)
+	S3SetupComplete = true
+}
 
 func GetDataFromCSV(csvPath string) []float64 {
 	file, err := os.Open(csvPath)
@@ -53,11 +91,40 @@ func GetPathLength(path [][3]float64) float64 {
 }
 
 func CheckPathExists(path string) string {
-	_, err := os.Open(path)
-	if err != nil {
-		log.Fatal(err)
+	if strings.HasPrefix(strings.ToLower(path), "s3://") {
+		if !S3SetupComplete {
+			setupS3()
+		}
+		tokens := strings.Split(path, "/")
+		keyName := tokens[len(tokens)-1]
+		bucketName := tokens[len(tokens)-2]
+
+		filePath := os.TempDir() + fmt.Sprint(os.PathSeparator) + fmt.Sprint(uid.NewSet().NewID()) + keyName
+		file, err := os.Open(filePath)
+		if err != nil {
+			panic("Could not create temp file to download S3 file " + path)
+		}
+
+		_, err = S3Downloader.Download(file,
+			&s3.GetObjectInput{
+				Bucket: aws.String(bucketName),
+				Key:    aws.String(keyName),
+			},
+		)
+		if err != nil {
+			panic("Could not download from S3")
+		}
+
+		return filePath
+
+	} else {
+
+		_, err := os.Open(path)
+		if err != nil {
+			log.Fatal(err)
+		}
+		return path
 	}
-	return path
 }
 
 func CheckSliceLen[T any](slice []T, requiredLength int) []T {
