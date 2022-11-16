@@ -148,6 +148,9 @@ func main() {
 			timestep := ctx.Float64("timestep")
 			surfaceEntrance := ctx.Bool("surfaceEntrance")
 
+			if strings.HasPrefix(strings.ToLower(dbPath), "s3://") {
+				dbPath = util.CheckPathExists(dbPath)
+			}
 			db, err := sql.Open("sqlite3", dbPath)
 			if err != nil {
 				log.Fatal(err)
