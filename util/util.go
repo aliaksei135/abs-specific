@@ -108,6 +108,7 @@ func CheckPathExists(path string) string {
 		filePath := os.TempDir() + fmt.Sprint(os.PathSeparator) + SimulationUID + keyName
 		file, err := os.Open(filePath)
 		if err != nil {
+			log.Println(err.Error())
 			panic("Could not create temp file to download S3 file " + path)
 		}
 		defer file.Close()
@@ -119,6 +120,7 @@ func CheckPathExists(path string) string {
 			},
 		)
 		if err != nil {
+			log.Println(err.Error())
 			panic("Could not download from S3")
 		}
 
@@ -147,6 +149,7 @@ func UploadToS3(path string) {
 
 	file, err := os.Open(path)
 	if err != nil {
+		log.Println(err.Error())
 		panic("Could not open results file")
 	}
 	fileName := SimulationUID + "-" + filepath.Base(path)
@@ -159,6 +162,7 @@ func UploadToS3(path string) {
 		},
 	)
 	if err != nil {
+		log.Println(err.Error())
 		panic("Could not upload results to S3")
 	}
 }
