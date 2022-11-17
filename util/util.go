@@ -106,7 +106,7 @@ func CheckPathExists(path string) string {
 		bucketName := tokens[len(tokens)-2]
 
 		filePath := os.TempDir() + fmt.Sprint(os.PathSeparator) + SimulationUID + keyName
-		file, err := os.Open(filePath)
+		file, err := os.Create(filePath)
 		if err != nil {
 			log.Println(err.Error())
 			panic("Could not create temp file to download S3 file " + path)
