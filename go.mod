@@ -18,5 +18,6 @@ require (
 
 require (
 	github.com/aws/aws-sdk-go v1.44.137
+	github.com/google/uuid v1.3.0
 	github.com/urfave/cli/v2 v2.23.4
 )

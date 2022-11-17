@@ -2,7 +2,7 @@ package util
 
 import (
 	"encoding/csv"
-	"fmt"
+	// "fmt"
 	"log"
 	"math"
 	"os"
@@ -15,7 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"gonum.org/v1/gonum/graph/set/uid"
+	"github.com/google/uuid"
 )
 
 var (
@@ -49,9 +49,7 @@ func setupS3() {
 	S3Uploader = *s3manager.NewUploader(sess)
 	S3SetupComplete = true
 
-	sUID := uid.NewSet().NewID()
-	uid.NewSet().Use(sUID)
-	SimulationUID = fmt.Sprint(sUID)
+	SimulationUID = uuid.New().String()
 }
 
 func GetDataFromCSV(csvPath string) []float64 {
@@ -71,7 +69,7 @@ func GetDataFromCSV(csvPath string) []float64 {
 func GetPathDataFromCSV(csvPath string) [][3]float64 {
 	file, err := os.Open(csvPath)
 	if err != nil {
-		fmt.Println(err)
+		log.Panic(err)
 	}
 	reader := csv.NewReader(file)
 	vals, _ := reader.ReadAll()
@@ -102,10 +100,10 @@ func CheckPathExists(path string) string {
 			setupS3()
 		}
 		tokens := strings.Split(path, "/")
-		keyName := tokens[len(tokens)-1]
-		bucketName := tokens[len(tokens)-2]
+		keyName := strings.Join(tokens[3:], "/")
+		bucketName := tokens[2]
 
-		filePath := os.TempDir() + fmt.Sprint(os.PathSeparator) + SimulationUID + keyName
+		filePath := filepath.Join(os.TempDir(), SimulationUID+tokens[len(tokens)-1])
 		file, err := os.Create(filePath)
 		if err != nil {
 			log.Println(err.Error())
@@ -146,6 +144,8 @@ func UploadToS3(path string) {
 	if !exists {
 		panic("S3 Upload bucket not set")
 	}
+	uploadTokens := strings.Split(uploadBucket, "/")
+	uploadBucket = uploadTokens[len(uploadTokens)-1]
 
 	file, err := os.Open(path)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/aliaksei135/abs-specific/hist"
@@ -20,7 +21,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/urfave/cli/v2"
-	// "github.com/urfave/cli/v2/altsrc"
 )
 
 func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt_hist, track_hist, vel_hist, vert_rate_hist hist.Histogram, timestep, target_density float64, path [][3]float64, conflict_dists [2]float64, surfaceEntrance bool) {
@@ -133,7 +133,6 @@ func main() {
 				Value: false,
 			},
 		},
-		// Before: altsrc., //TODO Accept file flag input
 		Action: func(ctx *cli.Context) error {
 			bounds := (*[6]float64)(util.CheckSliceLen(ctx.Float64Slice("bounds"), 6))
 			target_density := ctx.Float64("target-density")
@@ -149,7 +148,7 @@ func main() {
 			surfaceEntrance := ctx.Bool("surfaceEntrance")
 
 			if strings.HasPrefix(strings.ToLower(dbPath), "s3://") {
-				dbPath = util.CheckPathExists(dbPath)
+				dbPath = filepath.Join(os.TempDir(), "results.db")
 			}
 			db, err := sql.Open("sqlite3", dbPath)
 			if err != nil {
