@@ -145,7 +145,7 @@ func main() {
 			vel_hist := hist.CreateHistogram(util.GetDataFromCSV(util.CheckPathExists(ctx.Path("velDataPath"))), 50)
 			vert_rate_hist := hist.CreateHistogram(util.GetDataFromCSV(util.CheckPathExists(ctx.Path("vertRateDataPath"))), 50)
 			own_path := util.GetPathDataFromCSV(util.CheckPathExists(ctx.Path("ownPath")))
-			own_velocity := ctx.Float64("own-velocity")
+			own_velocity := ctx.Float64("ownVelocity")
 			conflict_dist := (*[2]float64)(util.CheckSliceLen(ctx.Float64Slice("conflictDists"), 2))
 			dbPath := ctx.Path("dbPath")
 			simOps := ctx.Int("simOps")
