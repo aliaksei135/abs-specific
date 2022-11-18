@@ -1,9 +1,10 @@
 package sim
 
 import (
-	"abs-specific/hist"
 	"math"
 	"math/rand"
+
+	"github.com/aliaksei135/abs-specific/hist"
 
 	"gonum.org/v1/gonum/mat"
 )
@@ -24,6 +25,7 @@ type Traffic struct {
 	VelocityDistr     hist.Histogram
 	TrackDistr        hist.Histogram
 	VerticalRateDistr hist.Histogram
+	SurfaceEntrance   bool
 
 	//State
 	velocities mat.Dense
@@ -56,6 +58,26 @@ func (tfc *Traffic) Setup(bounds [6]float64, target_density float64) {
 	tfc.AddAgents()
 }
 
+func (tfc *Traffic) GenerateXYEdgePosition() [2]float64 {
+	x_pos := ((tfc.x_bounds[1] - tfc.x_bounds[0]) * rand.Float64()) + tfc.x_bounds[0]
+	y_pos := ((tfc.y_bounds[1] - tfc.y_bounds[0]) * rand.Float64()) + tfc.y_bounds[0]
+
+	if tfc.SurfaceEntrance {
+		switch r := rand.Float64(); {
+		case r < 0.25:
+			x_pos = tfc.x_bounds[0]
+		case r < 0.5:
+			x_pos = tfc.x_bounds[1]
+		case r < 0.75:
+			y_pos = tfc.y_bounds[0]
+		default:
+			y_pos = tfc.y_bounds[1]
+		}
+	}
+
+	return [2]float64{x_pos, y_pos}
+}
+
 func (tfc *Traffic) AddAgents() {
 	n_new_agents := len(tfc.oob_rows)
 	speeds := tfc.VelocityDistr.Sample(n_new_agents)
@@ -63,11 +85,10 @@ func (tfc *Traffic) AddAgents() {
 	vert_rates := tfc.VerticalRateDistr.Sample(n_new_agents)
 	alts := tfc.AltitudeDistr.Sample(n_new_agents)
 	for idx, insert_row_idx := range tfc.oob_rows {
-		x_pos := ((tfc.x_bounds[1] - tfc.x_bounds[0]) * rand.Float64()) + tfc.x_bounds[0]
-		y_pos := ((tfc.y_bounds[1] - tfc.y_bounds[0]) * rand.Float64()) + tfc.y_bounds[0]
+		xy_pos := tfc.GenerateXYEdgePosition()
 		z_pos := alts[idx]
-		tfc.Positions.Set(insert_row_idx, 0, x_pos)
-		tfc.Positions.Set(insert_row_idx, 1, y_pos)
+		tfc.Positions.Set(insert_row_idx, 0, xy_pos[0])
+		tfc.Positions.Set(insert_row_idx, 1, xy_pos[1])
 		tfc.Positions.Set(insert_row_idx, 2, z_pos)
 
 		x_vel := math.Cos(bearing2angle(tracks[idx])) * speeds[idx]
@@ -81,8 +102,10 @@ func (tfc *Traffic) AddAgents() {
 	tfc.oob_rows = tfc.oob_rows[:0] // Clear filled oob rows
 }
 
-func (tfc *Traffic) Step() {
-	tfc.Positions.Add(&tfc.Positions, &tfc.velocities)
+func (tfc *Traffic) Step(timestep float64) {
+	var trafficSteps mat.Dense
+	trafficSteps.Scale(timestep, &tfc.velocities)
+	tfc.Positions.Add(&tfc.Positions, &trafficSteps)
 	// for i := 0; i < tfc.positions.RawMatrix().Rows; i++ {
 	// 	for j := 0; j < tfc.positions.RawMatrix().Cols; j++ {
 	// 		tfc.positions.Set(i, j, tfc.positions.At(i, j)+tfc.velocities.At(i, j))
@@ -116,7 +139,7 @@ func (ownship *Ownship) Setup() {
 	ownship.position = ownship.Path[0]
 }
 
-func (ownship *Ownship) Step() {
+func (ownship *Ownship) Step(timestep float64) {
 	sub_goal := ownship.Path[ownship.pathIndex]
 	var vecToGoal [3]float64
 	var stepToGoal [3]float64
@@ -127,10 +150,10 @@ func (ownship *Ownship) Step() {
 	goalMagnitude := math.Sqrt((vecToGoal[0] * vecToGoal[0]) + (vecToGoal[1] * vecToGoal[1]) + (vecToGoal[2] * vecToGoal[2]))
 
 	for i := range vecToGoal {
-		stepToGoal[i] = (vecToGoal[i] * ownship.Velocity) / goalMagnitude
+		stepToGoal[i] = (vecToGoal[i] * ownship.Velocity * timestep) / goalMagnitude
 	}
 
-	if ownship.Velocity > goalMagnitude {
+	if (ownship.Velocity * timestep) > goalMagnitude {
 		ownship.pathIndex += 1
 	}
 	for i := range stepToGoal {
@@ -143,6 +166,7 @@ type Simulation struct {
 	Ownship           Ownship
 	ConflictDistances [2]float64
 	ConflictLog       int
+	TimeStep          float64
 	T                 int
 }
 
@@ -153,8 +177,8 @@ func (sim *Simulation) Run() {
 			sim.End()
 			break
 		}
-		sim.Traffic.Step()
-		sim.Ownship.Step()
+		sim.Traffic.Step(sim.TimeStep)
+		sim.Ownship.Step(sim.TimeStep)
 
 		for i := 0; i < sim.Traffic.Positions.RawMatrix().Rows; i++ {
 			xy_dist := math.Sqrt((sim.Traffic.Positions.At(i, 0)-sim.Ownship.position[0])*(sim.Traffic.Positions.At(i, 0)-sim.Ownship.position[0]) + ((sim.Traffic.Positions.At(i, 1) - sim.Ownship.position[1]) * (sim.Traffic.Positions.At(i, 1) - sim.Ownship.position[1])))

@@ -1,16 +1,18 @@
 package main
 
 import (
-	"abs-specific/hist"
-	"abs-specific/sim"
-	"abs-specific/util"
 	"database/sql"
 	"fmt"
 	"log"
 	"math"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"time"
+
+	"github.com/aliaksei135/abs-specific/hist"
+	"github.com/aliaksei135/abs-specific/sim"
+	"github.com/aliaksei135/abs-specific/util"
 
 	"runtime"
 
@@ -19,21 +21,18 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/urfave/cli/v2"
-	// "github.com/urfave/cli/v2/altsrc"
 )
 
-func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt_hist, track_hist, vel_hist, vert_rate_hist hist.Histogram, target_density float64, path [][3]float64, conflict_dists [2]float64) {
-
+func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt_hist, track_hist, vel_hist, vert_rate_hist hist.Histogram, timestep, target_density, own_velocity float64, path [][3]float64, conflict_dists [2]float64, surfaceEntrance bool) {
 	for i := 0; i < batch_size; i++ {
 		seed := rand.Int63()
-		traffic := sim.Traffic{Seed: seed, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist}
+		traffic := sim.Traffic{Seed: seed, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist, SurfaceEntrance: surfaceEntrance}
 		traffic.Setup(bounds, target_density)
 
-		ownVelocity := 70.0
-		ownship := sim.Ownship{Path: path, Velocity: ownVelocity}
+		ownship := sim.Ownship{Path: path, Velocity: own_velocity}
 		ownship.Setup()
 
-		sim := sim.Simulation{Traffic: traffic, Ownship: ownship, ConflictDistances: conflict_dists}
+		sim := sim.Simulation{Traffic: traffic, Ownship: ownship, ConflictDistances: conflict_dists, TimeStep: timestep}
 		sim.Run()
 		sim.End()
 		pos_sum := 0.0
@@ -41,7 +40,7 @@ func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt
 		for i := 0; i < samples; i++ {
 			pos_sum += sim.Traffic.Positions.RawMatrix().Data[i]
 		}
-		chan_out <- []int64{int64(pos_sum), seed, int64(sim.T), int64(sim.ConflictLog)}
+		chan_out <- []int64{int64(pos_sum), seed, int64(float64(sim.T) * sim.TimeStep), int64(sim.ConflictLog)}
 	}
 }
 
@@ -107,6 +106,11 @@ func main() {
 				Usage:    "Path for ownship. Should be a nx3 CSV",
 				Required: true,
 			},
+			&cli.Float64Flag{
+				Name:  "ownVelocity",
+				Usage: "Speed of the ownship along the defined path in m/s",
+				Value: 60.0,
+			},
 			&cli.IntFlag{
 				Name:  "simOps",
 				Usage: "The total number of simulation runs to be done.",
@@ -115,15 +119,24 @@ func main() {
 			&cli.Float64SliceFlag{
 				Name:  "conflictDists",
 				Usage: "X,Y distances in metres which define a conflict",
-				Value: cli.NewFloat64Slice(20.0, 15.0),
+				Value: cli.NewFloat64Slice(15.0, 6.0),
 			},
 			&cli.PathFlag{
 				Name:  "dbPath",
 				Usage: "A path to the SQLite3 DB the results should be written to",
 				Value: "./results.db",
 			},
+			&cli.Float64Flag{
+				Name:  "timestep",
+				Usage: "The number of real seconds per simulation timestep. Can be less than 1. Must be greater then 0.",
+				Value: 1.0,
+			},
+			&cli.BoolFlag{
+				Name:  "surfaceEntrance",
+				Usage: "Boolean flag indicating whether traffic should only spawn at simulation volume surfaces",
+				Value: false,
+			},
 		},
-		// Before: altsrc., //TODO Accept file flag input
 		Action: func(ctx *cli.Context) error {
 			bounds := (*[6]float64)(util.CheckSliceLen(ctx.Float64Slice("bounds"), 6))
 			target_density := ctx.Float64("target-density")
@@ -132,10 +145,16 @@ func main() {
 			vel_hist := hist.CreateHistogram(util.GetDataFromCSV(util.CheckPathExists(ctx.Path("velDataPath"))), 50)
 			vert_rate_hist := hist.CreateHistogram(util.GetDataFromCSV(util.CheckPathExists(ctx.Path("vertRateDataPath"))), 50)
 			own_path := util.GetPathDataFromCSV(util.CheckPathExists(ctx.Path("ownPath")))
+			own_velocity := ctx.Float64("own-velocity")
 			conflict_dist := (*[2]float64)(util.CheckSliceLen(ctx.Float64Slice("conflictDists"), 2))
 			dbPath := ctx.Path("dbPath")
 			simOps := ctx.Int("simOps")
+			timestep := ctx.Float64("timestep")
+			surfaceEntrance := ctx.Bool("surfaceEntrance")
 
+			if strings.HasPrefix(strings.ToLower(dbPath), "s3://") {
+				dbPath = filepath.Join(os.TempDir(), "results.db")
+			}
 			db, err := sql.Open("sqlite3", dbPath)
 			if err != nil {
 				log.Fatal(err)
@@ -155,12 +174,12 @@ func main() {
 			fmt.Printf("Running %v batches of %v simulations\n", n_batches, batch_size)
 
 			pathLength := util.GetPathLength(own_path)
-			expectedSteps := pathLength / 70
+			expectedSteps := pathLength / own_velocity
 			simulatedHours := (expectedSteps * float64(n_batches) * float64(batch_size)) / 3600
 			fmt.Printf("Simulating %v hrs, with %v hrs per simulation\n", simulatedHours, expectedSteps/3600)
 
 			for i := 0; i < n_batches; i++ {
-				go simulateBatch(batch_size, result_chan, *bounds, alt_hist, track_hist, vel_hist, vert_rate_hist, target_density, own_path, *conflict_dist)
+				go simulateBatch(batch_size, result_chan, *bounds, alt_hist, track_hist, vel_hist, vert_rate_hist, timestep, target_density, own_velocity, own_path, *conflict_dist, surfaceEntrance)
 			}
 
 			sim_results := make([][]int64, n_batches*batch_size)
@@ -186,6 +205,13 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 				return err
+			}
+
+			_, S3Upload := os.LookupEnv("S3_UPLOAD_RESULTS")
+			if S3Upload {
+				fmt.Println("Uploading results to S3...")
+				util.UploadToS3(dbPath)
+				fmt.Println("Uploaded results to S3")
 			}
 
 			elapsed := time.Since(start).Seconds()
