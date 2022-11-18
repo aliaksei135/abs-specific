@@ -172,7 +172,7 @@ func main() {
 			fmt.Printf("Running %v batches of %v simulations\n", n_batches, batch_size)
 
 			pathLength := util.GetPathLength(own_path)
-			expectedSteps := pathLength / 70
+			expectedSteps := pathLength / own_velocity
 			simulatedHours := (expectedSteps * float64(n_batches) * float64(batch_size)) / 3600
 			fmt.Printf("Simulating %v hrs, with %v hrs per simulation\n", simulatedHours, expectedSteps/3600)
 
