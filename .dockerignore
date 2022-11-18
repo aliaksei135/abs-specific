@@ -1,0 +1,9 @@
+abs-specific
+abs-specific.exe
+test_data/
+.git/
+.aws/
+**/*_test*.*
+LICENSE
+.pre-commit-config.yaml
+.gitignore
