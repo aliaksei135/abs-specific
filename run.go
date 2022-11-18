@@ -23,14 +23,13 @@ import (
 	// "github.com/urfave/cli/v2/altsrc"
 )
 
-func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt_hist, track_hist, vel_hist, vert_rate_hist hist.Histogram, timestep, target_density float64, path [][3]float64, conflict_dists [2]float64, surfaceEntrance bool) {
+func simulateBatch(batch_size int, chan_out chan []int64, bounds [6]float64, alt_hist, track_hist, vel_hist, vert_rate_hist hist.Histogram, timestep, target_density, own_velocity float64, path [][3]float64, conflict_dists [2]float64, surfaceEntrance bool) {
 	for i := 0; i < batch_size; i++ {
 		seed := rand.Int63()
 		traffic := sim.Traffic{Seed: seed, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist, SurfaceEntrance: surfaceEntrance}
 		traffic.Setup(bounds, target_density)
 
-		ownVelocity := 60.0
-		ownship := sim.Ownship{Path: path, Velocity: ownVelocity}
+		ownship := sim.Ownship{Path: path, Velocity: own_velocity}
 		ownship.Setup()
 
 		sim := sim.Simulation{Traffic: traffic, Ownship: ownship, ConflictDistances: conflict_dists, TimeStep: timestep}
@@ -107,6 +106,11 @@ func main() {
 				Usage:    "Path for ownship. Should be a nx3 CSV",
 				Required: true,
 			},
+			&cli.Float64Flag{
+				Name:  "ownVelocity",
+				Usage: "Speed of the ownship along the defined path in m/s",
+				Value: 60.0,
+			},
 			&cli.IntFlag{
 				Name:  "simOps",
 				Usage: "The total number of simulation runs to be done.",
@@ -142,6 +146,7 @@ func main() {
 			vel_hist := hist.CreateHistogram(util.GetDataFromCSV(util.CheckPathExists(ctx.Path("velDataPath"))), 50)
 			vert_rate_hist := hist.CreateHistogram(util.GetDataFromCSV(util.CheckPathExists(ctx.Path("vertRateDataPath"))), 50)
 			own_path := util.GetPathDataFromCSV(util.CheckPathExists(ctx.Path("ownPath")))
+			own_velocity := ctx.Float64("own-velocity")
 			conflict_dist := (*[2]float64)(util.CheckSliceLen(ctx.Float64Slice("conflictDists"), 2))
 			dbPath := ctx.Path("dbPath")
 			simOps := ctx.Int("simOps")
@@ -172,7 +177,7 @@ func main() {
 			fmt.Printf("Simulating %v hrs, with %v hrs per simulation\n", simulatedHours, expectedSteps/3600)
 
 			for i := 0; i < n_batches; i++ {
-				go simulateBatch(batch_size, result_chan, *bounds, alt_hist, track_hist, vel_hist, vert_rate_hist, timestep, target_density, own_path, *conflict_dist, surfaceEntrance)
+				go simulateBatch(batch_size, result_chan, *bounds, alt_hist, track_hist, vel_hist, vert_rate_hist, timestep, target_density, own_velocity, own_path, *conflict_dist, surfaceEntrance)
 			}
 
 			sim_results := make([][]int64, n_batches*batch_size)
