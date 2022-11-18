@@ -23,7 +23,12 @@ var (
 	S3Downloader    s3manager.Downloader
 	S3Uploader      s3manager.Uploader
 	SimulationUID   string
+
+	JOB_ID    string
+	JOB_INDEX string
 )
+
+const ()
 
 func setupS3() {
 	S3_KEY := os.Getenv("S3_KEY")
@@ -49,7 +54,17 @@ func setupS3() {
 	S3Uploader = *s3manager.NewUploader(sess)
 	S3SetupComplete = true
 
-	SimulationUID = uuid.New().String()
+	awsBatchJobID, jobIdSet := os.LookupEnv("AWS_BATCH_JOB_ID")
+	awsBatchJobIndex, arrayIndexSet := os.LookupEnv("AWS_BATCH_JOB_ARRAY_INDEX")
+	if arrayIndexSet && jobIdSet {
+		SimulationUID = awsBatchJobID + "#" + awsBatchJobIndex
+		JOB_ID = awsBatchJobID
+		JOB_INDEX = awsBatchJobIndex
+	} else {
+		SimulationUID = uuid.New().String()
+		JOB_ID = "local" + "-" + SimulationUID
+		JOB_INDEX = "0"
+	}
 }
 
 func GetDataFromCSV(csvPath string) []float64 {
@@ -152,12 +167,12 @@ func UploadToS3(path string) {
 		log.Println(err.Error())
 		panic("Could not open results file")
 	}
-	fileName := SimulationUID + "-" + filepath.Base(path)
+	keyName := JOB_ID + "/" + JOB_INDEX + "-" + filepath.Base(path)
 
 	_, err = S3Uploader.Upload(
 		&s3manager.UploadInput{
 			Bucket: &uploadBucket,
-			Key:    &fileName,
+			Key:    &keyName,
 			Body:   file,
 		},
 	)
