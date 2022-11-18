@@ -2,7 +2,6 @@ package util
 
 import (
 	"encoding/csv"
-	// "fmt"
 	"log"
 	"math"
 	"os"
@@ -58,7 +57,7 @@ func setupS3() {
 	awsBatchJobIndex, arrayIndexSet := os.LookupEnv("AWS_BATCH_JOB_ARRAY_INDEX")
 	if arrayIndexSet && jobIdSet {
 		SimulationUID = awsBatchJobID + "#" + awsBatchJobIndex
-		JOB_ID = awsBatchJobID
+		JOB_ID = strings.Split(awsBatchJobID, ":")[0]
 		JOB_INDEX = awsBatchJobIndex
 	} else {
 		SimulationUID = uuid.New().String()
