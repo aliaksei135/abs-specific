@@ -179,8 +179,11 @@ func main() {
 
 			pathLength := util.GetPathLength(own_path)
 			expectedSteps := pathLength / own_velocity
-			simulatedHours := (expectedSteps * float64(n_batches) * float64(batch_size)) / 3600
-			fmt.Printf("Simulating %v hrs, with %v hrs per simulation\n", simulatedHours, expectedSteps/3600)
+			expectedSecs := expectedSteps / timestep
+			batchHours := (expectedSecs * float64(batch_size)) / 3600
+			batchTimesteps := expectedSecs * float64(n_batches) * float64(batch_size)
+			fmt.Printf("Simulating %v total hrs, %v hrs per simulation, %v hrs per batch\n", batchHours*float64(n_batches), expectedSecs/3600, batchHours)
+			fmt.Printf("Simulating %v total timesteps, %v timesteps per simulation, %v timesteps per batch\n", batchTimesteps*float64(n_batches), expectedSteps, batchTimesteps)
 
 			for i := 0; i < n_batches; i++ {
 				go simulateBatch(batch_size, i, result_chan, *bounds, alt_hist, track_hist, vel_hist, vert_rate_hist, timestep, target_density, own_velocity, own_path, *conflict_dist, surfaceEntrance)
@@ -219,7 +222,7 @@ func main() {
 			}
 
 			elapsed := time.Since(start).Seconds()
-			fmt.Printf("Completed successfully in %v seconds.\n %v ms per simulation.\n %v secs per simulated hour.\n", elapsed, elapsed/float64(1000*n_batches*batch_size), elapsed/simulatedHours)
+			fmt.Printf("Completed successfully in %v seconds.\n %v ms per simulation.\n %v secs per simulated hour.\n", elapsed, elapsed/float64(1000*n_batches*batch_size), elapsed/(batchHours*float64(n_batches)))
 			fmt.Print("Exiting...\n")
 			return nil
 		},
