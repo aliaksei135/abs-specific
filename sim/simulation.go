@@ -28,10 +28,11 @@ type Traffic struct {
 	SurfaceEntrance   bool
 
 	//State
-	velocities mat.Dense
-	Positions  mat.Dense
-	Seed       int64
-	oob_rows   []int
+	stepVelocities mat.Dense
+	Positions      mat.Dense
+	Seed           int64
+	Timestep       float64
+	oob_rows       []int
 }
 
 func (tfc *Traffic) Setup(bounds [6]float64, target_density float64) {
@@ -50,7 +51,7 @@ func (tfc *Traffic) Setup(bounds [6]float64, target_density float64) {
 
 	tfc.oob_rows = make([]int, tfc.target_agents)
 	tfc.Positions = *mat.NewDense(tfc.target_agents, 3, nil)
-	tfc.velocities = *mat.NewDense(tfc.target_agents, 3, nil)
+	tfc.stepVelocities = *mat.NewDense(tfc.target_agents, 3, nil)
 
 	for i := range tfc.oob_rows {
 		tfc.oob_rows[i] = i
@@ -94,18 +95,16 @@ func (tfc *Traffic) AddAgents() {
 		x_vel := math.Cos(bearing2angle(tracks[idx])) * speeds[idx]
 		y_vel := math.Sin(bearing2angle(tracks[idx])) * speeds[idx]
 		z_vel := vert_rates[idx]
-		tfc.velocities.Set(insert_row_idx, 0, x_vel)
-		tfc.velocities.Set(insert_row_idx, 1, y_vel)
-		tfc.velocities.Set(insert_row_idx, 2, z_vel)
+		tfc.stepVelocities.Set(insert_row_idx, 0, x_vel*tfc.Timestep)
+		tfc.stepVelocities.Set(insert_row_idx, 1, y_vel*tfc.Timestep)
+		tfc.stepVelocities.Set(insert_row_idx, 2, z_vel*tfc.Timestep)
 	}
 
 	tfc.oob_rows = tfc.oob_rows[:0] // Clear filled oob rows
 }
 
-func (tfc *Traffic) Step(timestep float64) {
-	var trafficSteps mat.Dense
-	trafficSteps.Scale(timestep, &tfc.velocities)
-	tfc.Positions.Add(&tfc.Positions, &trafficSteps)
+func (tfc *Traffic) Step() {
+	tfc.Positions.Add(&tfc.Positions, &tfc.stepVelocities)
 	// for i := 0; i < tfc.positions.RawMatrix().Rows; i++ {
 	// 	for j := 0; j < tfc.positions.RawMatrix().Cols; j++ {
 	// 		tfc.positions.Set(i, j, tfc.positions.At(i, j)+tfc.velocities.At(i, j))
@@ -128,18 +127,21 @@ func (tfc *Traffic) End() {
 }
 
 type Ownship struct {
-	Path      [][3]float64
-	position  [3]float64
-	Velocity  float64
-	pathIndex int
+	Path         [][3]float64
+	position     [3]float64
+	Velocity     float64
+	Timestep     float64
+	pathIndex    int
+	stepVelocity float64
 }
 
 func (ownship *Ownship) Setup() {
 	ownship.pathIndex = 1
 	ownship.position = ownship.Path[0]
+	ownship.stepVelocity = ownship.Velocity * ownship.Timestep
 }
 
-func (ownship *Ownship) Step(timestep float64) {
+func (ownship *Ownship) Step() {
 	sub_goal := ownship.Path[ownship.pathIndex]
 	var vecToGoal [3]float64
 	var stepToGoal [3]float64
@@ -150,10 +152,10 @@ func (ownship *Ownship) Step(timestep float64) {
 	goalMagnitude := math.Sqrt((vecToGoal[0] * vecToGoal[0]) + (vecToGoal[1] * vecToGoal[1]) + (vecToGoal[2] * vecToGoal[2]))
 
 	for i := range vecToGoal {
-		stepToGoal[i] = (vecToGoal[i] * ownship.Velocity * timestep) / goalMagnitude
+		stepToGoal[i] = (vecToGoal[i] * ownship.stepVelocity) / goalMagnitude
 	}
 
-	if (ownship.Velocity * timestep) > goalMagnitude {
+	if ownship.stepVelocity > goalMagnitude {
 		ownship.pathIndex += 1
 	}
 	for i := range stepToGoal {
@@ -177,8 +179,8 @@ func (sim *Simulation) Run() {
 			sim.End()
 			break
 		}
-		sim.Traffic.Step(sim.TimeStep)
-		sim.Ownship.Step(sim.TimeStep)
+		sim.Traffic.Step()
+		sim.Ownship.Step()
 
 		for i := 0; i < sim.Traffic.Positions.RawMatrix().Rows; i++ {
 			xy_dist := math.Sqrt((sim.Traffic.Positions.At(i, 0)-sim.Ownship.position[0])*(sim.Traffic.Positions.At(i, 0)-sim.Ownship.position[0]) + ((sim.Traffic.Positions.At(i, 1) - sim.Ownship.position[1]) * (sim.Traffic.Positions.At(i, 1) - sim.Ownship.position[1])))

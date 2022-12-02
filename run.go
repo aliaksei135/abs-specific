@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"math/rand"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -26,10 +27,10 @@ import (
 func simulateBatch(batch_size, batch_id int, chan_out chan []int64, bounds [6]float64, alt_hist, track_hist, vel_hist, vert_rate_hist hist.Histogram, timestep, target_density, own_velocity float64, path [][3]float64, conflict_dists [2]float64, surfaceEntrance bool) {
 	for i := 0; i < batch_size; i++ {
 		seed := rand.Int63()
-		traffic := sim.Traffic{Seed: seed, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist, SurfaceEntrance: surfaceEntrance}
+		traffic := sim.Traffic{Seed: seed, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist, SurfaceEntrance: surfaceEntrance, Timestep: timestep}
 		traffic.Setup(bounds, target_density)
 
-		ownship := sim.Ownship{Path: path, Velocity: own_velocity}
+		ownship := sim.Ownship{Path: path, Velocity: own_velocity, Timestep: timestep}
 		ownship.Setup()
 
 		sim := sim.Simulation{Traffic: traffic, Ownship: ownship, ConflictDistances: conflict_dists, TimeStep: timestep}
@@ -69,6 +70,10 @@ func simulateBatch(batch_size, batch_id int, chan_out chan []int64, bounds [6]fl
 func main() {
 	log.SetFlags(0)
 	start := time.Now()
+
+	go func() {
+		fmt.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	app := &cli.App{
 		Version:     "0.1a",

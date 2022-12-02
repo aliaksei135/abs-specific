@@ -46,7 +46,7 @@ func TestTraffic_Setup(t *testing.T) {
 		tfc  *Traffic
 		args args
 	}{
-		{"Setup", &Traffic{Seed: 321, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist, SurfaceEntrance: false}, args{[6]float64{0, 1e4, 0, 1e4, 0, 1524}, 4e-9}},
+		{"Setup", &Traffic{Seed: 321, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist, SurfaceEntrance: false, Timestep: 0.1}, args{[6]float64{0, 1e4, 0, 1e4, 0, 1524}, 4e-9}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -60,7 +60,7 @@ func TestTraffic_Step(t *testing.T) {
 	track_hist := hist.CreateHistogram(util.GetDataFromCSV("../test_data/tracks.csv"), 40)
 	vel_hist := hist.CreateHistogram(util.GetDataFromCSV("../test_data/vels.csv"), 40)
 	vert_rate_hist := hist.CreateHistogram(util.GetDataFromCSV("../test_data/vert_rates.csv"), 40)
-	traffic := Traffic{Seed: 321, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist, SurfaceEntrance: true}
+	traffic := Traffic{Seed: 321, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist, SurfaceEntrance: true, Timestep: 0.1}
 	traffic.Setup([6]float64{0, 1e4, 0, 1e4, 0, 1524}, 4e-9)
 	type args struct {
 		timestep float64
@@ -74,7 +74,7 @@ func TestTraffic_Step(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.tfc.Step(tt.args.timestep)
+			tt.tfc.Step()
 		})
 	}
 }
@@ -96,7 +96,7 @@ func TestOwnship_Step(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.ownship.Step(tt.args.timestep)
+			tt.ownship.Step()
 		})
 	}
 }
@@ -106,10 +106,10 @@ func TestSimulation_Run(t *testing.T) {
 	track_hist := hist.CreateHistogram(util.GetDataFromCSV("../test_data/tracks.csv"), 40)
 	vel_hist := hist.CreateHistogram(util.GetDataFromCSV("../test_data/vels.csv"), 40)
 	vert_rate_hist := hist.CreateHistogram(util.GetDataFromCSV("../test_data/vert_rates.csv"), 40)
-	traffic := Traffic{Seed: 321, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist, SurfaceEntrance: false}
+	traffic := Traffic{Seed: 321, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist, SurfaceEntrance: false, Timestep: 0.1}
 	traffic.Setup([6]float64{-145176.17270300398, -101964.24515822314, 6569893.199178016, 6595219.236650961, 0, 1524}, 1e-9)
 
-	ownship := Ownship{Path: util.GetPathDataFromCSV("../test_data/path.csv"), Velocity: 70.0}
+	ownship := Ownship{Path: util.GetPathDataFromCSV("../test_data/path.csv"), Velocity: 70.0, Timestep: 0.1}
 	ownship.Setup()
 
 	sim := Simulation{Traffic: traffic, Ownship: ownship, ConflictDistances: [2]float64{20, 20}, TimeStep: 1.0}
