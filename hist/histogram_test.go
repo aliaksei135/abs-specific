@@ -49,7 +49,6 @@ func TestCreateHistogram(t *testing.T) {
 
 func TestHistogram_Sample(t *testing.T) {
 	alt_histogram := CreateHistogram(util.GetDataFromCSV("../test_data/alts.csv"), 20)
-	rand.Seed(324)
 	type args struct {
 		num int
 	}
@@ -60,11 +59,11 @@ func TestHistogram_Sample(t *testing.T) {
 		want []float64
 	}{
 		{"Altitudes", &alt_histogram, args{1}, []float64{2721.7847769028867}},
-		{"Altitudes Multiple", &alt_histogram, args{20}, []float64{2135.1706036745404, 1353.0183727034118, 3895.01312335958, 2721.7847769028867, 1157.48031496063, 1744.0944881889764, 3112.8608923884512, 1548.556430446194, 3895.01312335958, 3503.9370078740158, 2917.322834645669, 1353.0183727034118, 1548.556430446194, 1939.6325459317586, 1548.556430446194, 3308.3989501312335, 2526.246719160105, 1939.6325459317586, 3699.475065616798, 3895.01312335958}},
+		{"Altitudes Multiple", &alt_histogram, args{20}, []float64{2721.7847769028867, 2135.1706036745404, 1353.0183727034118, 3895.01312335958, 2721.7847769028867, 1157.48031496063, 1744.0944881889764, 3112.8608923884512, 1548.556430446194, 3895.01312335958, 3503.9370078740158, 2917.322834645669, 1353.0183727034118, 1548.556430446194, 1939.6325459317586, 1548.556430446194, 3308.3989501312335, 2526.246719160105, 1939.6325459317586, 3699.475065616798}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.hist.Sample(tt.args.num); !reflect.DeepEqual(got, tt.want) {
+			if got := tt.hist.Sample(tt.args.num, *rand.New(rand.NewSource(324))); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Histogram.Sample() = %v, want %v", got, tt.want)
 			}
 		})

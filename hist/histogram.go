@@ -46,10 +46,10 @@ func CreateHistogram(data []float64, num_bins int) Histogram {
 	return Histogram{bin_midpoints: bin_midpoints, cdf: cdf}
 }
 
-func (hist *Histogram) Sample(num int) []float64 {
+func (hist *Histogram) Sample(num int, randomSource rand.Rand) []float64 {
 	samples := make([]float64, num)
 	for i := 0; i < num; i++ {
-		randn := rand.Float64()
+		randn := randomSource.Float64()
 		insert_idx := sort.SearchFloat64s(hist.cdf, randn)
 		samples[i] = hist.bin_midpoints[insert_idx]
 	}

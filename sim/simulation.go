@@ -32,6 +32,7 @@ type Traffic struct {
 	TrackDistr        hist.Histogram
 	VerticalRateDistr hist.Histogram
 	SurfaceEntrance   bool
+	randomSource      *rand.Rand
 
 	//State
 	StepVelocities mat.Dense
@@ -39,6 +40,10 @@ type Traffic struct {
 	Seed           int64
 	Timestep       float64
 	oob_rows       []int
+}
+
+func (tfc *Traffic) randFloat64() float64 {
+	return float64(tfc.randomSource.Int63n(1<<53)) / (1 << 53)
 }
 
 func (tfc *Traffic) Setup(bounds [6]float64, target_density float64) {
@@ -50,7 +55,7 @@ func (tfc *Traffic) Setup(bounds [6]float64, target_density float64) {
 	tfc.z_bounds[0] = bounds[4] - 200
 	tfc.z_bounds[1] = bounds[5] + 200
 
-	rand.Seed(tfc.Seed)
+	tfc.randomSource = rand.New(rand.NewSource(tfc.Seed))
 
 	tfc.TotalVolume = math.Abs(tfc.x_bounds[1]-tfc.x_bounds[0]) * math.Abs(tfc.y_bounds[1]-tfc.y_bounds[0]) * math.Abs(tfc.z_bounds[1]-tfc.z_bounds[0])
 	tfc.target_agents = int(math.Ceil(target_density * tfc.TotalVolume))
@@ -66,11 +71,11 @@ func (tfc *Traffic) Setup(bounds [6]float64, target_density float64) {
 }
 
 func (tfc *Traffic) GenerateXYEdgePosition() [2]float64 {
-	x_pos := ((tfc.x_bounds[1] - tfc.x_bounds[0]) * rand.Float64()) + tfc.x_bounds[0]
-	y_pos := ((tfc.y_bounds[1] - tfc.y_bounds[0]) * rand.Float64()) + tfc.y_bounds[0]
+	x_pos := ((tfc.x_bounds[1] - tfc.x_bounds[0]) * tfc.randFloat64()) + tfc.x_bounds[0]
+	y_pos := ((tfc.y_bounds[1] - tfc.y_bounds[0]) * tfc.randFloat64()) + tfc.y_bounds[0]
 
 	if tfc.SurfaceEntrance {
-		switch r := rand.Float64(); {
+		switch r := tfc.randFloat64(); {
 		case r < 0.25:
 			x_pos = tfc.x_bounds[0]
 		case r < 0.5:
@@ -87,10 +92,10 @@ func (tfc *Traffic) GenerateXYEdgePosition() [2]float64 {
 
 func (tfc *Traffic) AddAgents() {
 	n_new_agents := len(tfc.oob_rows)
-	speeds := tfc.VelocityDistr.Sample(n_new_agents)
-	tracks := tfc.TrackDistr.Sample(n_new_agents)
-	vert_rates := tfc.VerticalRateDistr.Sample(n_new_agents)
-	alts := tfc.AltitudeDistr.Sample(n_new_agents)
+	speeds := tfc.VelocityDistr.Sample(n_new_agents, *tfc.randomSource)
+	tracks := tfc.TrackDistr.Sample(n_new_agents, *tfc.randomSource)
+	vert_rates := tfc.VerticalRateDistr.Sample(n_new_agents, *tfc.randomSource)
+	alts := tfc.AltitudeDistr.Sample(n_new_agents, *tfc.randomSource)
 	for idx, insert_row_idx := range tfc.oob_rows {
 		xy_pos := tfc.GenerateXYEdgePosition()
 		z_pos := alts[idx]
