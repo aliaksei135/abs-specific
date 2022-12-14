@@ -9,6 +9,11 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
+const (
+	RAD2DEG = 180.0 / math.Pi
+	DEG2RAD = math.Pi / 180
+)
+
 func bearing2angle(bearing float64) float64 {
 	return math.Mod((360 - (bearing - 90)), 360)
 }
@@ -92,8 +97,8 @@ func (tfc *Traffic) AddAgents() {
 		tfc.Positions.Set(insert_row_idx, 1, xy_pos[1])
 		tfc.Positions.Set(insert_row_idx, 2, z_pos)
 
-		x_vel := math.Cos(bearing2angle(tracks[idx])) * speeds[idx]
-		y_vel := math.Sin(bearing2angle(tracks[idx])) * speeds[idx]
+		x_vel := math.Cos(DEG2RAD*bearing2angle(tracks[idx])) * speeds[idx]
+		y_vel := math.Sin(DEG2RAD*bearing2angle(tracks[idx])) * speeds[idx]
 		z_vel := vert_rates[idx]
 		tfc.stepVelocities.Set(insert_row_idx, 0, x_vel*tfc.Timestep)
 		tfc.stepVelocities.Set(insert_row_idx, 1, y_vel*tfc.Timestep)
