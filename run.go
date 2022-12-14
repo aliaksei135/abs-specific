@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/csv"
 	"fmt"
 	"log"
 	"math"
@@ -9,11 +10,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/aliaksei135/abs-specific/hist"
 	"github.com/aliaksei135/abs-specific/sim"
 	"github.com/aliaksei135/abs-specific/util"
+	"github.com/google/uuid"
+	"gonum.org/v1/gonum/mat"
 
 	"runtime"
 
@@ -21,10 +25,20 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
+	_ "net/http/pprof"
+
 	"github.com/urfave/cli/v2"
 )
 
+var (
+	SIM_ID, _         = uuid.NewUUID()
+	DEBUG_WRITE_MUTEX sync.Mutex
+)
+
 func simulateBatch(batch_size, batch_id int, chan_out chan []int64, bounds [6]float64, alt_hist, track_hist, vel_hist, vert_rate_hist hist.Histogram, timestep, target_density, own_velocity float64, path [][3]float64, conflict_dists [2]float64, surfaceEntrance bool) {
+	f, _ := os.OpenFile(fmt.Sprintf("debug/%v.csv", SIM_ID), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	defer f.Close()
+	csvWriter := csv.NewWriter(f)
 	for i := 0; i < batch_size; i++ {
 		seed := rand.Int63()
 		traffic := sim.Traffic{Seed: seed, AltitudeDistr: alt_hist, VelocityDistr: vel_hist, TrackDistr: track_hist, VerticalRateDistr: vert_rate_hist, SurfaceEntrance: surfaceEntrance, Timestep: timestep}
@@ -38,12 +52,39 @@ func simulateBatch(batch_size, batch_id int, chan_out chan []int64, bounds [6]fl
 		sim.End()
 		pos_sum := 0.0
 		samples := int(math.Min(600, float64(len(sim.Traffic.Positions.RawMatrix().Data)-1)))
-		for i := 0; i < samples; i++ {
-			pos_sum += sim.Traffic.Positions.RawMatrix().Data[i]
+		for j := 0; j < samples; j++ {
+			pos_sum += sim.Traffic.Positions.RawMatrix().Data[j]
 		}
 		chan_out <- []int64{int64(pos_sum), seed, int64(float64(sim.T) * sim.TimeStep), int64(sim.ConflictLog)}
 		if i%int(batch_size/20) == 0 {
 			fmt.Printf("Completed %v sims in batch %v \n", i, batch_id)
+		}
+
+		if i%int(batch_size/5) == 0 {
+			traffic_positions := mat.DenseCopyOf(&traffic.Positions)
+
+			n_agents := traffic_positions.RawMatrix().Rows
+			traffic_density := fmt.Sprint(float64(n_agents) / traffic.TotalVolume)
+
+			traffic_velocities := mat.NewDense(traffic.StepVelocities.RawMatrix().Rows, traffic.StepVelocities.RawMatrix().Cols, nil)
+			traffic_velocities.Scale(1/traffic.Timestep, &traffic.StepVelocities)
+
+			agent_strs := make([][]string, n_agents)
+			for k := 0; k < n_agents; k++ {
+				posX := fmt.Sprint(traffic_positions.At(k, 0))
+				posY := fmt.Sprint(traffic_positions.At(k, 1))
+				posZ := fmt.Sprint(traffic_positions.At(k, 2))
+
+				velX := fmt.Sprint(traffic_velocities.At(k, 0))
+				velY := fmt.Sprint(traffic_velocities.At(k, 1))
+				velZ := fmt.Sprint(traffic_velocities.At(k, 2))
+
+				agent_str := []string{posX, posY, posZ, velX, velY, velZ, fmt.Sprint(n_agents), traffic_density}
+				agent_strs[k] = agent_str
+			}
+			DEBUG_WRITE_MUTEX.Lock()
+			_ = csvWriter.WriteAll(agent_strs)
+			DEBUG_WRITE_MUTEX.Unlock()
 		}
 	}
 	fmt.Printf("Completed batch %v \n", batch_id)
