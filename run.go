@@ -227,7 +227,7 @@ func main() {
 			}
 
 			elapsed := time.Since(start).Seconds()
-			fmt.Printf("Completed successfully in %v seconds.\n %v ms per simulation.\n %v secs per simulated hour.\n", elapsed, elapsed/float64(1000*n_batches*batch_size), elapsed/(batchHours*float64(n_batches)))
+			fmt.Printf("Completed successfully in %v seconds.\n %v ms per simulation.\n %v secs per simulated hour.\n", elapsed, elapsed*1000/float64(n_batches*batch_size), elapsed/(batchHours*float64(n_batches)))
 			fmt.Print("Exiting...\n")
 			return nil
 		},
