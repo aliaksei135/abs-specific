@@ -24,6 +24,7 @@ type Traffic struct {
 	y_bounds      [2]float64
 	z_bounds      [2]float64
 	target_agents int
+	TotalVolume   float64
 
 	//Randomness
 	AltitudeDistr     hist.Histogram
@@ -33,7 +34,7 @@ type Traffic struct {
 	SurfaceEntrance   bool
 
 	//State
-	stepVelocities mat.Dense
+	StepVelocities mat.Dense
 	Positions      mat.Dense
 	Seed           int64
 	Timestep       float64
@@ -51,12 +52,12 @@ func (tfc *Traffic) Setup(bounds [6]float64, target_density float64) {
 
 	rand.Seed(tfc.Seed)
 
-	total_vol := math.Abs(tfc.x_bounds[1]-tfc.x_bounds[0]) * math.Abs(tfc.y_bounds[1]-tfc.y_bounds[0]) * math.Abs(tfc.z_bounds[1]-tfc.z_bounds[0])
-	tfc.target_agents = int(math.Ceil(target_density * total_vol))
+	tfc.TotalVolume = math.Abs(tfc.x_bounds[1]-tfc.x_bounds[0]) * math.Abs(tfc.y_bounds[1]-tfc.y_bounds[0]) * math.Abs(tfc.z_bounds[1]-tfc.z_bounds[0])
+	tfc.target_agents = int(math.Ceil(target_density * tfc.TotalVolume))
 
 	tfc.oob_rows = make([]int, tfc.target_agents)
 	tfc.Positions = *mat.NewDense(tfc.target_agents, 3, nil)
-	tfc.stepVelocities = *mat.NewDense(tfc.target_agents, 3, nil)
+	tfc.StepVelocities = *mat.NewDense(tfc.target_agents, 3, nil)
 
 	for i := range tfc.oob_rows {
 		tfc.oob_rows[i] = i
@@ -100,21 +101,16 @@ func (tfc *Traffic) AddAgents() {
 		x_vel := math.Cos(DEG2RAD*bearing2angle(tracks[idx])) * speeds[idx]
 		y_vel := math.Sin(DEG2RAD*bearing2angle(tracks[idx])) * speeds[idx]
 		z_vel := vert_rates[idx]
-		tfc.stepVelocities.Set(insert_row_idx, 0, x_vel*tfc.Timestep)
-		tfc.stepVelocities.Set(insert_row_idx, 1, y_vel*tfc.Timestep)
-		tfc.stepVelocities.Set(insert_row_idx, 2, z_vel*tfc.Timestep)
+		tfc.StepVelocities.Set(insert_row_idx, 0, x_vel*tfc.Timestep)
+		tfc.StepVelocities.Set(insert_row_idx, 1, y_vel*tfc.Timestep)
+		tfc.StepVelocities.Set(insert_row_idx, 2, z_vel*tfc.Timestep)
 	}
 
 	tfc.oob_rows = tfc.oob_rows[:0] // Clear filled oob rows
 }
 
 func (tfc *Traffic) Step() {
-	tfc.Positions.Add(&tfc.Positions, &tfc.stepVelocities)
-	// for i := 0; i < tfc.positions.RawMatrix().Rows; i++ {
-	// 	for j := 0; j < tfc.positions.RawMatrix().Cols; j++ {
-	// 		tfc.positions.Set(i, j, tfc.positions.At(i, j)+tfc.velocities.At(i, j))
-	// 	}
-	// }
+	tfc.Positions.Add(&tfc.Positions, &tfc.StepVelocities)
 
 	for i := 0; i < tfc.Positions.RawMatrix().Rows; i++ {
 		if tfc.Positions.At(i, 0) < tfc.x_bounds[0] && tfc.Positions.At(i, 0) > tfc.x_bounds[1] && tfc.Positions.At(i, 1) < tfc.y_bounds[0] && tfc.Positions.At(i, 1) > tfc.y_bounds[1] && tfc.Positions.At(i, 2) < tfc.z_bounds[0] && tfc.Positions.At(i, 2) > tfc.z_bounds[1] {
