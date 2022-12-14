@@ -118,7 +118,7 @@ func (tfc *Traffic) Step() {
 	tfc.Positions.Add(&tfc.Positions, &tfc.StepVelocities)
 
 	for i := 0; i < tfc.Positions.RawMatrix().Rows; i++ {
-		if tfc.Positions.At(i, 0) < tfc.x_bounds[0] && tfc.Positions.At(i, 0) > tfc.x_bounds[1] && tfc.Positions.At(i, 1) < tfc.y_bounds[0] && tfc.Positions.At(i, 1) > tfc.y_bounds[1] && tfc.Positions.At(i, 2) < tfc.z_bounds[0] && tfc.Positions.At(i, 2) > tfc.z_bounds[1] {
+		if tfc.Positions.At(i, 0) < tfc.x_bounds[0] || tfc.Positions.At(i, 0) > tfc.x_bounds[1] || tfc.Positions.At(i, 1) < tfc.y_bounds[0] || tfc.Positions.At(i, 1) > tfc.y_bounds[1] || tfc.Positions.At(i, 2) < tfc.z_bounds[0] || tfc.Positions.At(i, 2) > tfc.z_bounds[1] {
 			tfc.oob_rows = append(tfc.oob_rows, i)
 		}
 	}
