@@ -31,6 +31,7 @@ import (
 )
 
 var (
+	DEBUG             = false // Change this for more debug info!
 	SIM_ID, _         = uuid.NewUUID()
 	DEBUG_WRITE_MUTEX sync.Mutex
 )
@@ -60,7 +61,7 @@ func simulateBatch(batch_size, batch_id int, chan_out chan []int64, bounds [6]fl
 			fmt.Printf("Completed %v sims in batch %v \n", i, batch_id)
 		}
 
-		if i%int(batch_size/5) == 0 {
+		if DEBUG && i%int(batch_size/5) == 0 {
 			traffic_positions := mat.DenseCopyOf(&traffic.Positions)
 
 			n_agents := traffic_positions.RawMatrix().Rows
@@ -112,9 +113,11 @@ func main() {
 	log.SetFlags(0)
 	start := time.Now()
 
-	go func() {
-		fmt.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
+	if DEBUG {
+		go func() {
+			fmt.Println(http.ListenAndServe("localhost:6060", nil))
+		}()
+	}
 
 	app := &cli.App{
 		Version:     "0.1a",
