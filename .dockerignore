@@ -1,6 +1,7 @@
 abs-specific
 abs-specific.exe
 test_data/
+debug/
 .git/
 .aws/
 **/*_test*.*
