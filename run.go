@@ -31,12 +31,16 @@ import (
 )
 
 var (
-	DEBUG             = false // Change this for more debug info!
 	SIM_ID, _         = uuid.NewUUID()
 	DEBUG_WRITE_MUTEX sync.Mutex
 )
 
+const (
+	DEBUG = false
+)
+
 func simulateBatch(batch_size, batch_id int, chan_out chan []int64, bounds [6]float64, alt_hist, track_hist, vel_hist, vert_rate_hist hist.Histogram, timestep, target_density, own_velocity float64, path [][3]float64, conflict_dists [2]float64, surfaceEntrance bool) {
+	// We can leave this debug code here as the compiler *should* optimise this away as unused when DEBUG==false
 	f, _ := os.OpenFile(fmt.Sprintf("debug/%v.csv", SIM_ID), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	defer f.Close()
 	csvWriter := csv.NewWriter(f)
