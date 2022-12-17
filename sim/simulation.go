@@ -176,6 +176,7 @@ type Simulation struct {
 	ConflictLog       int
 	TimeStep          float64
 	T                 int
+	conflictRows      []int
 }
 
 func (sim *Simulation) Run() {
@@ -192,7 +193,17 @@ func (sim *Simulation) Run() {
 			xy_dist := math.Sqrt((sim.Traffic.Positions.At(i, 0)-sim.Ownship.position[0])*(sim.Traffic.Positions.At(i, 0)-sim.Ownship.position[0]) + ((sim.Traffic.Positions.At(i, 1) - sim.Ownship.position[1]) * (sim.Traffic.Positions.At(i, 1) - sim.Ownship.position[1])))
 			z_dist := math.Abs(sim.Traffic.Positions.At(i, 2) - sim.Ownship.position[2])
 			if xy_dist < sim.ConflictDistances[0] && z_dist < sim.ConflictDistances[1] {
-				sim.ConflictLog++
+				skip := false
+				for r := range sim.conflictRows {
+					if i == r {
+						skip = true
+						break
+					}
+				}
+				if !skip {
+					sim.ConflictLog++
+					sim.conflictRows = append(sim.conflictRows, i)
+				}
 			}
 		}
 		sim.T++
