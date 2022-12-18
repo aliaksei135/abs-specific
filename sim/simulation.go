@@ -194,7 +194,7 @@ func (sim *Simulation) Run() {
 			z_dist := math.Abs(sim.Traffic.Positions.At(i, 2) - sim.Ownship.position[2])
 			if xy_dist < sim.ConflictDistances[0] && z_dist < sim.ConflictDistances[1] {
 				skip := false
-				for r := range sim.conflictRows {
+				for _, r := range sim.conflictRows {
 					if i == r {
 						skip = true
 						break
